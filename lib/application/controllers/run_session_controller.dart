@@ -73,10 +73,19 @@ class RunSessionController extends StateNotifier<RunSessionState> {
       _locationSubscription = _locationRepository.getLocationStream().listen(
         (trackPoint) {
           if (state.currentSession != null) {
+            final oldPointCount = state.currentSession!.trackPoints.length;
             final updatedSession = _updateRunSession.execute(
               state.currentSession!,
               trackPoint,
             );
+            final newPointCount = updatedSession.trackPoints.length;
+            
+            if (newPointCount > oldPointCount) {
+              print('✅ Point ACCEPTED (total: $newPointCount)');
+            } else {
+              print('❌ Point REJECTED');
+            }
+            
             state = state.copyWith(currentSession: updatedSession);
           }
         },
@@ -110,8 +119,11 @@ class RunSessionController extends StateNotifier<RunSessionState> {
 
   Future<void> _fetchInitialPosition() async {
     try {
+      print('🔍 Fetching initial position...');
       final initialPosition = await _locationRepository.getCurrentPosition()
           .timeout(const Duration(seconds: 5));
+      
+      print('✅ Initial position: ${initialPosition.accuracy.toStringAsFixed(1)}m');
       
       if (state.currentSession != null) {
         final updatedSession = _updateRunSession.execute(
@@ -121,7 +133,7 @@ class RunSessionController extends StateNotifier<RunSessionState> {
         state = state.copyWith(currentSession: updatedSession);
       }
     } catch (e) {
-      // İlk pozisyon alınamazsa, stream'den geleni bekle
+      print('⚠️ Initial position timeout');
     }
   }
 

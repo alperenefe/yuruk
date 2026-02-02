@@ -9,7 +9,7 @@ class GeolocatorLocationRepository implements LocationRepository {
 
   static const LocationSettings _locationSettings = LocationSettings(
     accuracy: LocationAccuracy.bestForNavigation,
-    distanceFilter: 5,
+    distanceFilter: 0, // Her GPS güncellemesini al (1-2 saniyede bir)
   );
 
   @override
@@ -37,6 +37,7 @@ class GeolocatorLocationRepository implements LocationRepository {
             timestamp: position.timestamp,
           );
           
+          print('📍 GPS: acc=${position.accuracy.toStringAsFixed(1)}m, spd=${position.speed.toStringAsFixed(1)}m/s');
           _trackPointController!.add(trackPoint);
         }
       },

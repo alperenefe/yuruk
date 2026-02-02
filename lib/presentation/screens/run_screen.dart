@@ -1,19 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/run_session_provider.dart';
+import '../../domain/entities/track_point.dart';
+import '../../core/di/service_locator.dart';
+import '../../domain/repositories/location_repository.dart';
 import '../widgets/run_map_widget.dart';
 
-class RunScreen extends ConsumerWidget {
+class RunScreen extends ConsumerStatefulWidget {
   const RunScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RunScreen> createState() => _RunScreenState();
+}
+
+class _RunScreenState extends ConsumerState<RunScreen> {
+  TrackPoint? _initialPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchInitialPosition();
+  }
+
+  Future<void> _fetchInitialPosition() async {
+    try {
+      final locationRepo = getIt<LocationRepository>();
+      final position = await locationRepo.getCurrentPosition();
+      if (mounted) {
+        setState(() {
+          _initialPosition = position;
+        });
+      }
+    } catch (e) {
+      print('⚠️ Could not get initial position: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(runSessionControllerProvider);
     final controller = ref.read(runSessionControllerProvider.notifier);
 
+    // Koşu varsa trackPoint'ten, yoksa initial position'dan al
     final currentPosition = state.currentSession?.trackPoints.isNotEmpty == true
         ? state.currentSession!.trackPoints.last
-        : null;
+        : _initialPosition;
 
     return Scaffold(
       appBar: AppBar(

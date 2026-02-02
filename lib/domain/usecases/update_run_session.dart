@@ -6,18 +6,26 @@ class UpdateRunSession {
 
   RunSession execute(RunSession currentSession, TrackPoint newPoint) {
     if (currentSession.status != RunStatus.running) {
+      print('❌ Session not running');
       return currentSession;
     }
 
-    if (!newPoint.isAccurate) {
+    // İlk 10 nokta için daha toleranslı filtre (GPS warm-up)
+    final isWarmingUp = currentSession.trackPoints.length < 10;
+
+    if (!isWarmingUp && !newPoint.isAccurate) {
+      print('❌ Poor accuracy: ${newPoint.accuracy.toStringAsFixed(1)}m');
       return currentSession;
     }
 
     if (!newPoint.isSpeedReasonable()) {
+      print('❌ Speed: ${(newPoint.speed * 3.6).toStringAsFixed(1)} km/h');
       return currentSession;
     }
 
-    if (newPoint.speed < 0.5 && newPoint.accuracy > 15) {
+    // Warm-up sırasında bu filtreyi atla
+    if (!isWarmingUp && newPoint.speed < 0.5 && newPoint.accuracy > 15) {
+      print('❌ Stationary + poor acc');
       return currentSession;
     }
 
@@ -28,7 +36,10 @@ class UpdateRunSession {
       final lastPoint = currentSession.trackPoints.last;
       additionalDistance = lastPoint.distanceTo(newPoint);
       
-      if (additionalDistance < 5 && newPoint.speed < 0.5) {
+      // Warm-up sırasında distance filter'ı 2m'ye düşür
+      final minDistance = isWarmingUp ? 2.0 : 5.0;
+      if (additionalDistance < minDistance && newPoint.speed < 0.5) {
+        print('❌ Distance: ${additionalDistance.toStringAsFixed(1)}m');
         return currentSession;
       }
       

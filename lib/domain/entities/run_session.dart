@@ -55,14 +55,14 @@ class RunSession extends Equatable {
   }
 
   double get averagePaceMinPerKm {
-    if (totalDistance < 100) return 0;
+    if (totalDistance < 50) return 0; // 50m'den sonra göster
     final minutes = elapsedTime.inSeconds / 60.0;
     final km = totalDistance / 1000.0;
     return minutes / km;
   }
 
   String get averagePaceFormatted {
-    if (totalDistance < 100) return '--:--';
+    if (totalDistance < 50) return '--:--'; // 50m'den sonra göster
     final pace = averagePaceMinPerKm;
     final minutes = pace.floor();
     final seconds = ((pace - minutes) * 60).round();
