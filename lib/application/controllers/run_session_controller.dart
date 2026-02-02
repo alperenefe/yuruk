@@ -8,6 +8,8 @@ import '../../domain/usecases/start_run_session.dart';
 import '../../domain/usecases/stop_run_session.dart';
 import '../../domain/usecases/update_run_session.dart';
 import '../../domain/exceptions/location_exceptions.dart';
+import '../../domain/services/announcement_service.dart';
+import '../../infrastructure/tts/flutter_tts_service.dart';
 
 class RunSessionState {
   final RunSession? currentSession;
@@ -43,6 +45,8 @@ class RunSessionController extends StateNotifier<RunSessionState> {
   final StartRunSession _startRunSession;
   final StopRunSession _stopRunSession;
   final UpdateRunSession _updateRunSession;
+  final FlutterTtsService _ttsService = FlutterTtsService();
+  final AnnouncementService _announcementService = AnnouncementService();
 
   StreamSubscription<TrackPoint>? _locationSubscription;
   Timer? _elapsedTimer;
@@ -53,7 +57,9 @@ class RunSessionController extends StateNotifier<RunSessionState> {
   )   : _startRunSession = StartRunSession(_locationRepository),
         _stopRunSession = StopRunSession(_locationRepository, _runSessionRepository),
         _updateRunSession = UpdateRunSession(),
-        super(RunSessionState());
+        super(RunSessionState()) {
+    _ttsService.initialize();
+  }
 
   Future<void> startRun() async {
     state = state.copyWith(isLoading: true, error: null);
@@ -68,6 +74,8 @@ class RunSessionController extends StateNotifier<RunSessionState> {
         error: null,
       );
 
+      _ttsService.speak(_announcementService.getStartAnnouncement());
+      
       _startElapsedTimer();
 
       _locationSubscription = _locationRepository.getLocationStream().listen(
@@ -144,6 +152,8 @@ class RunSessionController extends StateNotifier<RunSessionState> {
       
       if (state.currentSession != null) {
         final stoppedSession = await _stopRunSession.execute(state.currentSession!);
+        _ttsService.speak(_announcementService.getStopAnnouncement(stoppedSession));
+        
         state = state.copyWith(
           currentSession: stoppedSession,
           isRunning: false,
@@ -162,6 +172,7 @@ class RunSessionController extends StateNotifier<RunSessionState> {
   void dispose() {
     _elapsedTimer?.cancel();
     _locationSubscription?.cancel();
+    _ttsService.dispose();
     super.dispose();
   }
 }

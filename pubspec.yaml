@@ -58,6 +58,9 @@ dependencies:
   sqflite: ^2.3.3+1
   path: ^1.9.0
   
+  # Text-to-Speech
+  flutter_tts: ^4.2.0
+  
   # Background Location (Phase 6'da eklenecek)
   # flutter_foreground_task: ^8.11.0
 
