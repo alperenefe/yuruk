@@ -46,6 +46,16 @@ dependencies:
   
   # UUID Generation
   uuid: ^4.5.1
+  
+  # GPS & Location
+  geolocator: ^13.0.2
+  
+  # Map
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  
+  # Background Location (Phase 6'da eklenecek)
+  # flutter_foreground_task: ^8.11.0
 
 dev_dependencies:
   flutter_test:

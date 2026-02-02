@@ -66,4 +66,9 @@ class MockLocationRepository implements LocationRepository {
   Future<bool> requestPermission() async {
     return true;
   }
+
+  @override
+  Future<TrackPoint> getCurrentPosition() async {
+    return _mockRoute.first;
+  }
 }

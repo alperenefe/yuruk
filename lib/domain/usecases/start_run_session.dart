@@ -1,6 +1,7 @@
 import 'package:uuid/uuid.dart';
 import '../entities/run_session.dart';
 import '../repositories/location_repository.dart';
+import '../exceptions/location_exceptions.dart';
 
 class StartRunSession {
   final LocationRepository locationRepository;
@@ -9,14 +10,16 @@ class StartRunSession {
   StartRunSession(this.locationRepository);
 
   Future<RunSession> execute() async {
-    final hasPermission = await locationRepository.requestPermission();
-    if (!hasPermission) {
-      throw Exception('Location permission denied');
-    }
-
+    // Konum servisi kontrolü
     final isEnabled = await locationRepository.isLocationServiceEnabled();
     if (!isEnabled) {
-      throw Exception('Location service is disabled');
+      throw LocationServiceDisabledException();
+    }
+
+    // Konum izni kontrolü
+    final hasPermission = await locationRepository.requestPermission();
+    if (!hasPermission) {
+      throw LocationPermissionDeniedException();
     }
 
     await locationRepository.startTracking();

@@ -45,5 +45,15 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Koşu sırasında konumunuzu takip etmek için GPS erişimine ihtiyacımız var.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Arka planda koşu takibi için GPS erişimine ihtiyacımız var.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Arka planda koşu takibi için GPS erişimine ihtiyacımız var.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>

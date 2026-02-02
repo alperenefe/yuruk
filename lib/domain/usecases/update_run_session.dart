@@ -17,12 +17,20 @@ class UpdateRunSession {
       return currentSession;
     }
 
+    if (newPoint.speed < 0.5 && newPoint.accuracy > 15) {
+      return currentSession;
+    }
+
     final updatedPoints = [...currentSession.trackPoints, newPoint];
     
     double additionalDistance = 0;
     if (currentSession.trackPoints.isNotEmpty) {
       final lastPoint = currentSession.trackPoints.last;
       additionalDistance = lastPoint.distanceTo(newPoint);
+      
+      if (additionalDistance < 5 && newPoint.speed < 0.5) {
+        return currentSession;
+      }
       
       final timeDiffSeconds = newPoint.timestamp.difference(lastPoint.timestamp).inSeconds;
       if (timeDiffSeconds > 0) {
