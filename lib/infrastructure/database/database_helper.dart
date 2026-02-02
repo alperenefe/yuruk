@@ -19,9 +19,29 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
+  }
+  
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add workout_plans table if upgrading from v1
+      const idType = 'TEXT PRIMARY KEY';
+      const textType = 'TEXT NOT NULL';
+      const integerType = 'INTEGER NOT NULL';
+      
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS workout_plans (
+          id $idType,
+          name $textType,
+          description TEXT,
+          steps $textType,
+          createdAt $integerType
+        )
+      ''');
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {

@@ -24,11 +24,22 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
 
   Future<void> _loadPlans() async {
     setState(() => _isLoading = true);
-    final plans = await _repository.getAllPlans();
-    setState(() {
-      _plans = plans;
-      _isLoading = false;
-    });
+    try {
+      final plans = await _repository.getAllPlans();
+      if (mounted) {
+        setState(() {
+          _plans = plans;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hata: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _deletePlan(String id) async {
