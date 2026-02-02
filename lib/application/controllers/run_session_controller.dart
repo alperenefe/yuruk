@@ -170,6 +170,15 @@ class RunSessionController extends StateNotifier<RunSessionState> {
         _ttsService.speak(_announcementService.getIntervalStepStartAnnouncement(
           event.step,
         ));
+      } else if (event is IntervalMidStepFeedback) {
+        if (kDebugMode) print('📊 Mid-step feedback at 50%');
+        final feedback = _announcementService.getMidStepFeedbackAnnouncement(
+          event.step,
+          updatedInterval,
+        );
+        if (feedback.isNotEmpty) {
+          _ttsService.speak(feedback);
+        }
       } else if (event is IntervalWorkoutCompleted) {
         if (kDebugMode) print('🎉 Workout completed!');
         _ttsService.speak(_announcementService.getWorkoutCompletedAnnouncement());

@@ -17,6 +17,12 @@ class IntervalStepCompleted extends IntervalEvent {
   IntervalStepCompleted(this.step, this.stepIndex);
 }
 
+class IntervalMidStepFeedback extends IntervalEvent {
+  final IntervalStep step;
+  final int stepIndex;
+  IntervalMidStepFeedback(this.step, this.stepIndex);
+}
+
 class IntervalWorkoutCompleted extends IntervalEvent {}
 
 /// Core interval training engine
@@ -26,6 +32,7 @@ class IntervalWorkoutCompleted extends IntervalEvent {}
 class IntervalEngine {
   IntervalSession? _currentSession;
   final List<IntervalEvent> _events = [];
+  final Set<int> _midStepFeedbackGiven = {}; // Track which steps got 50% feedback
 
   /// Start a new interval session
   IntervalSession start(IntervalSession session) {
@@ -82,6 +89,23 @@ class IntervalEngine {
       stepActualDistance: actualDistance,
       stepActualTimeSeconds: actualTime,
     );
+
+    // Check for 50% mid-step feedback (only for non-rest steps with target pace)
+    final currentStepIndex = _currentSession!.currentStepIndex;
+    if (!_midStepFeedbackGiven.contains(currentStepIndex) && 
+        !currentStep.isRest && 
+        currentStep.targetPace != null) {
+      // Calculate progress percentage manually
+      final target = currentStep.type == IntervalType.distance 
+          ? (currentStep.targetDistance ?? 0) 
+          : (currentStep.targetDuration?.inSeconds.toDouble() ?? 0);
+      final progressPercentage = target > 0 ? (newProgress / target) * 100 : 0.0;
+      
+      if (progressPercentage >= 50.0) {
+        _midStepFeedbackGiven.add(currentStepIndex);
+        _events.add(IntervalMidStepFeedback(currentStep, currentStepIndex));
+      }
+    }
 
     // Check if current step is completed
     if (_currentSession!.isCurrentStepCompleted) {

@@ -89,19 +89,52 @@ class AnnouncementService {
         sb.write('. Tempo ${session.stepActualPaceFormatted}, hedef ${step.targetPace}');
         
         final diff = (actualPace - targetPace) * 60; // seconds difference
-        if (diff.abs() < 3) {
+        // Dinamik tolerans: sadece hızlılık için
+        final lowerTolerance = targetPace < 5.0 ? -10.0 : -5.0;
+        const upperTolerance = 3.0; // Minimal tolerans
+        
+        if (diff >= lowerTolerance && diff <= upperTolerance) {
           sb.write('. Mükemmel');
-        } else if (diff < 0) {
-          // Faster than target
+        } else if (diff < lowerTolerance) {
+          // Too fast
           sb.write('. ${diff.abs().toInt()} saniye hızlısın');
         } else {
-          // Slower than target
+          // Too slow
           sb.write('. ${diff.toInt()} saniye yavaşsın');
         }
       }
     }
 
     return sb.toString();
+  }
+
+  /// Mid-step feedback announcement (at 50% progress)
+  String getMidStepFeedbackAnnouncement(IntervalStep step, IntervalSession session) {
+    // Only for steps with target pace
+    if (step.targetPace == null || session.stepActualPaceFormatted == null) {
+      return '';
+    }
+
+    final actualPace = session.stepActualPaceMinPerKm!;
+    final targetPace = _parsePace(step.targetPace!);
+    
+    if (targetPace == null) return '';
+
+    final diff = (actualPace - targetPace) * 60; // seconds difference
+    
+    // Dinamik tolerans: sadece hızlılık için, yavaşlık için minimal
+    final lowerTolerance = targetPace < 5.0 ? -10.0 : -5.0; // Hızlı tempo -> hızlılığa daha toleranslı
+    const upperTolerance = 3.0; // Yavaşlık için minimal tolerans (3 saniye)
+    
+    if (diff >= lowerTolerance && diff <= upperTolerance) {
+      return 'İyi gidiyorsun!';
+    } else if (diff < lowerTolerance) {
+      // Too fast
+      return '${diff.abs().toInt()} saniye hızlısın, tempo düşür';
+    } else {
+      // Too slow
+      return '${diff.toInt()} saniye yavaşsın, hızlanabilirsin';
+    }
   }
 
   /// Workout completed announcement
