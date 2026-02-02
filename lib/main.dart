@@ -3,8 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/di/service_locator.dart';
 import 'presentation/screens/run_screen.dart';
 import 'presentation/screens/history_screen.dart';
+import 'infrastructure/background/foreground_task_handler.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize foreground task
+  await ForegroundTaskManager.initialize();
+  
   setupServiceLocator();
   runApp(const ProviderScope(child: MyApp()));
 }

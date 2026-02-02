@@ -10,6 +10,7 @@ import '../../domain/usecases/update_run_session.dart';
 import '../../domain/exceptions/location_exceptions.dart';
 import '../../domain/services/announcement_service.dart';
 import '../../infrastructure/tts/flutter_tts_service.dart';
+import '../../infrastructure/background/foreground_task_handler.dart';
 
 class RunSessionState {
   final RunSession? currentSession;
@@ -74,6 +75,9 @@ class RunSessionController extends StateNotifier<RunSessionState> {
         error: null,
       );
 
+      // Start foreground service for background tracking
+      await ForegroundTaskManager.startService();
+      
       _ttsService.speak(_announcementService.getStartAnnouncement());
       
       _startElapsedTimer();
@@ -161,6 +165,9 @@ class RunSessionController extends StateNotifier<RunSessionState> {
         );
       }
 
+      // Stop foreground service
+      await ForegroundTaskManager.stopService();
+      
       await _locationSubscription?.cancel();
       _locationSubscription = null;
     } catch (e) {

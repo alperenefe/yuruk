@@ -61,6 +61,9 @@ dependencies:
   # Text-to-Speech
   flutter_tts: ^4.2.0
   
+  # Background/Foreground Service
+  flutter_foreground_task: ^8.15.0
+  
   # Background Location (Phase 6'da eklenecek)
   # flutter_foreground_task: ^8.11.0
 
