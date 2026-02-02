@@ -15,6 +15,7 @@ import '../../domain/exceptions/location_exceptions.dart';
 import '../../domain/services/announcement_service.dart';
 import '../../infrastructure/tts/flutter_tts_service.dart';
 import '../../infrastructure/background/foreground_task_handler.dart';
+import '../../infrastructure/gps/simulated_location_repository.dart';
 
 class RunSessionState {
   final RunSession? currentSession;
@@ -101,8 +102,13 @@ class RunSessionController extends StateNotifier<RunSessionState> {
         _ttsService.speak(_announcementService.getStartAnnouncement());
       }
 
-      // Start foreground service for background tracking
-      await ForegroundTaskManager.startService();
+      // Start foreground service for background tracking (skip for simulated GPS)
+      final isSimulated = _locationRepository is SimulatedLocationRepository;
+      if (!isSimulated) {
+        await ForegroundTaskManager.startService();
+      } else if (kDebugMode) {
+        print('⏩ Skipping foreground service (simulated GPS)');
+      }
       
       _startElapsedTimer();
 
@@ -222,8 +228,11 @@ class RunSessionController extends StateNotifier<RunSessionState> {
         );
       }
 
-      // Stop foreground service
-      await ForegroundTaskManager.stopService();
+      // Stop foreground service (skip for simulated GPS)
+      final isSimulated = _locationRepository is SimulatedLocationRepository;
+      if (!isSimulated) {
+        await ForegroundTaskManager.stopService();
+      }
       
       await _locationSubscription?.cancel();
       _locationSubscription = null;

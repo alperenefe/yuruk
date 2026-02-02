@@ -71,54 +71,59 @@ class _RunScreenState extends ConsumerState<RunScreen> {
             flex: 1,
             child: Container(
               color: Colors.grey.shade100,
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (state.error != null)
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    if (state.error != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Hata: ${state.error}',
+                          style: const TextStyle(color: Colors.red, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-                      child: Text(
-                        'Hata: ${state.error}',
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                        textAlign: TextAlign.center,
-                      ),
+                    
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildCompactStat(
+                          'Mesafe',
+                          state.currentSession != null
+                              ? '${(state.currentSession!.totalDistance / 1000).toStringAsFixed(2)} km'
+                              : '0.00 km',
+                        ),
+                        _buildCompactStat(
+                          'Süre',
+                          state.currentSession != null
+                              ? _formatDuration(state.currentSession!.elapsedTime)
+                              : '0:00',
+                        ),
+                        _buildCompactStat(
+                          'Pace',
+                          state.currentSession != null
+                              ? state.currentSession!.averagePaceFormatted
+                              : '--:--',
+                        ),
+                      ],
                     ),
-                  
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildCompactStat(
-                        'Mesafe',
-                        state.currentSession != null
-                            ? '${(state.currentSession!.totalDistance / 1000).toStringAsFixed(2)} km'
-                            : '0.00 km',
-                      ),
-                      _buildCompactStat(
-                        'Süre',
-                        state.currentSession != null
-                            ? _formatDuration(state.currentSession!.elapsedTime)
-                            : '0:00',
-                      ),
-                      _buildCompactStat(
-                        'Pace',
-                        state.currentSession != null
-                            ? state.currentSession!.averagePaceFormatted
-                            : '--:--',
-                      ),
+                    
+                    if (!state.isRunning) ...[
+                      const SizedBox(height: 12),
+                      _buildWorkoutPlanSelector(),
                     ],
-                  ),
-                  
-                  if (!state.isRunning) _buildWorkoutPlanSelector(),
-                  
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
+                    
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
                       onPressed: state.isLoading
                           ? null
                           : (state.isRunning
@@ -150,7 +155,8 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                             ),
                     ),
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

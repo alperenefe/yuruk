@@ -22,37 +22,54 @@ class RunMapWidget extends StatefulWidget {
 class _RunMapWidgetState extends State<RunMapWidget> {
   final MapController _mapController = MapController();
   bool _isAutoCenter = true;
+  bool _isMapReady = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _centerOnCurrentPosition();
-    });
+    // Don't try to move map until it's ready
   }
 
   @override
   void didUpdateWidget(RunMapWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     
-    if (_isAutoCenter && widget.currentPosition != null) {
+    if (_isAutoCenter && _isMapReady && widget.currentPosition != null) {
       _centerOnCurrentPosition();
     }
   }
 
   void _centerOnCurrentPosition() {
-    if (widget.currentPosition != null) {
-      _mapController.move(
-        LatLng(
-          widget.currentPosition!.latitude,
-          widget.currentPosition!.longitude,
-        ),
-        16.0,
-      );
+    if (widget.currentPosition != null && _isMapReady && mounted) {
+      try {
+        _mapController.move(
+          LatLng(
+            widget.currentPosition!.latitude,
+            widget.currentPosition!.longitude,
+          ),
+          16.0,
+        );
+      } catch (e) {
+        // Ignore if controller not ready yet
+      }
     }
   }
 
   void _onMapEvent(MapEvent event) {
+    // Mark map as ready on first event
+    if (!_isMapReady) {
+      setState(() {
+        _isMapReady = true;
+      });
+      // Center on current position once map is ready
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.currentPosition != null) {
+          _centerOnCurrentPosition();
+        }
+      });
+    }
+    
+    // Disable auto-center if user manually moves map
     if (event is MapEventMoveStart && event.source != MapEventSource.mapController) {
       setState(() {
         _isAutoCenter = false;
