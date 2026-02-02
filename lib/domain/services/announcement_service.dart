@@ -1,6 +1,7 @@
 import '../entities/run_session.dart';
 import '../entities/interval_step.dart';
 import '../entities/interval_session.dart';
+import '../../core/config/interval_feedback_config.dart';
 
 /// Service for generating voice announcements during runs and intervals
 class AnnouncementService {
@@ -89,9 +90,9 @@ class AnnouncementService {
         sb.write('. Tempo ${session.stepActualPaceFormatted}, hedef ${step.targetPace}');
         
         final diff = (actualPace - targetPace) * 60; // seconds difference
-        // Dinamik tolerans: sadece hızlılık için
-        final lowerTolerance = targetPace < 5.0 ? -10.0 : -5.0;
-        const upperTolerance = 3.0; // Minimal tolerans
+        // Dinamik tolerans (config'den)
+        final lowerTolerance = IntervalFeedbackConfig.getLowerTolerance(targetPace);
+        final upperTolerance = IntervalFeedbackConfig.getUpperTolerance(targetPace);
         
         if (diff >= lowerTolerance && diff <= upperTolerance) {
           sb.write('. Mükemmel');
@@ -122,9 +123,9 @@ class AnnouncementService {
 
     final diff = (actualPace - targetPace) * 60; // seconds difference
     
-    // Dinamik tolerans: sadece hızlılık için, yavaşlık için minimal
-    final lowerTolerance = targetPace < 5.0 ? -10.0 : -5.0; // Hızlı tempo -> hızlılığa daha toleranslı
-    const upperTolerance = 3.0; // Yavaşlık için minimal tolerans (3 saniye)
+    // Dinamik tolerans (config'den)
+    final lowerTolerance = IntervalFeedbackConfig.getLowerTolerance(targetPace);
+    final upperTolerance = IntervalFeedbackConfig.getUpperTolerance(targetPace);
     
     if (diff >= lowerTolerance && diff <= upperTolerance) {
       return 'İyi gidiyorsun!';

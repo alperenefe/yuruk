@@ -1,6 +1,7 @@
 import '../entities/interval_session.dart';
 import '../entities/interval_step.dart';
 import '../entities/run_session.dart';
+import '../../core/config/interval_feedback_config.dart';
 
 /// Events emitted by the interval engine
 abstract class IntervalEvent {}
@@ -101,7 +102,7 @@ class IntervalEngine {
           : (currentStep.targetDuration?.inSeconds.toDouble() ?? 0);
       final progressPercentage = target > 0 ? (newProgress / target) * 100 : 0.0;
       
-      if (progressPercentage >= 50.0) {
+      if (progressPercentage >= IntervalFeedbackConfig.midStepFeedbackPercentage) {
         _midStepFeedbackGiven.add(currentStepIndex);
         _events.add(IntervalMidStepFeedback(currentStep, currentStepIndex));
       }
