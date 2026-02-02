@@ -32,7 +32,8 @@ lib/
 │   └── widgets/        # RunMap, Stats, Controls
 └── core/               # Shared utilities
     ├── di/             # GetIt setup
-    └── filters/        # Kalman Filter
+    ├── filters/        # Kalman Filter
+    └── config/         # GPS & Interval configs (modular constants)
 ```
 
 ## ✨ Features
@@ -57,12 +58,15 @@ lib/
 - ✅ **Custom workout plans** - Create, save, and reuse
 - ✅ **Smart announcements**: 
   - "400 metre hızlı başladı"
+  - **Mid-step (50%):** "3 saniye yavaşsın, hızlanabilirsin" / "İyi gidiyorsun!"
   - "400 metre tamamlandı. Tempo 4:48, hedef 5:00. 12 saniye hızlısın!"
   - "Dinlenme tamamlandı"
 
 ### 🔊 Audio Guidance
 - ✅ **Turkish TTS** (flutter_tts)
 - ✅ **Interval announcements** with pace feedback
+- ✅ **Mid-interval feedback** at 50% progress (e.g., "3 saniye yavaşsın, hızlanabilirsin")
+- ✅ **Dynamic pace tolerance**: Tempo = Tolerans (5:00/km → -5 sec fast, 0 sec slow)
 - ✅ **Background audio** support
 
 ## 📦 Development Phases
@@ -114,10 +118,13 @@ lib/
 - ✅ Distance & time-based intervals
 - ✅ Target pace with real-time comparison
 - ✅ Relative progress tracking (offset-based)
+- ✅ **Mid-interval feedback** at 50% progress
+- ✅ **Dynamic pace tolerance** (tempo = tolerance formula)
 - ✅ Workout plan UI (create, list, delete)
 - ✅ Plan selection on run screen
-- ✅ Smart TTS announcements with pace feedback (7 tests)
+- ✅ Smart TTS announcements with pace feedback (8 tests)
 - ✅ SQLite storage for workout plans
+- ✅ **Simulated GPS** for emulator testing
 - ✅ Comprehensive test coverage (27 tests for intervals)
 
 ### 🔜 Phase 8 - Optional Extensions (Future)
@@ -134,14 +141,14 @@ Run all unit tests:
 flutter test
 ```
 
-**Test Results:** 50 PASSED ✅ | 2 SKIPPED
+**Test Results:** 51 PASSED ✅ | 2 SKIPPED
 
 ### Test Coverage:
 ```
 ✅ Kalman Filter (5 tests)
 ✅ IntervalEngine (5 tests)
 ✅ IntervalSession (10 tests)
-✅ AnnouncementService (7 tests)
+✅ AnnouncementService (8 tests)
 ✅ GPS & Filtering (8 tests)
 ✅ RunSession entity (5 tests)
 ✅ UpdateRunSession (4 tests)
@@ -183,10 +190,12 @@ Steps:
 **Expected Announcements:**
 ```
 🔊 "400 metre hızlı başladı"
+🔊 (50% @ 200m) "3 saniye yavaşsın, hızlanabilirsin"
 🔊 "400 metre tamamlandı. Tempo 4:55, hedef 5:00. 5 saniye hızlısın!"
 🔊 "2 dakika dinlenme başladı"
 🔊 "Dinlenme tamamlandı"
 🔊 "400 metre hızlı başladı"
+🔊 (50% @ 200m) "İyi gidiyorsun!"
 🔊 "400 metre tamamlandı. Tempo 5:10, hedef 5:00. 10 saniye yavaşsın"
 🔊 "200 metre dinlenme başladı"
 🔊 "Dinlenme tamamlandı"
@@ -237,6 +246,27 @@ Steps:
 - **Implied speed check**: Max 100 km/h between consecutive points
 - **Stationary detection**: Rejects points < 5m with speed < 0.5 m/s and accuracy > 15m
 
+**Config Location:** `lib/core/config/gps_filter_config.dart`
+
+## 🎯 Interval Feedback Strategy
+
+### Mid-Interval Feedback (50% Progress)
+**Trigger:** At 50% of step distance or duration
+
+**Pace Tolerance Formula:**
+```dart
+Fast tolerance: -targetPace minutes (5:00 → -5 sec, 4:00 → -4 sec)
+Slow tolerance: 0 sec (NO tolerance for slowness)
+```
+
+**Examples:**
+- 5:00/km target, running at 4:55 → "İyi gidiyorsun!" ✅
+- 5:00/km target, running at 5:03 → "3 saniye yavaşsın, hızlanabilirsin" ⚠️
+- 4:00/km target, running at 3:56 → "İyi gidiyorsun!" ✅
+- 4:00/km target, running at 4:05 → "5 saniye yavaşsın, hızlanabilirsin" ⚠️
+
+**Config Location:** `lib/core/config/interval_feedback_config.dart`
+
 ### Kalman Filter
 - **Q (Process noise)**: 
   - Lat/Lng: 0.0001
@@ -277,8 +307,17 @@ GPS updates are async and variable (0.5-2s). Using GPS timestamps for UI would c
 ### 3. Pace Threshold
 Changed from 100m → **50m** for faster user feedback.
 
-### 4. TTS Simplicity
-No mid-interval announcements to avoid distraction. Only start, completion, and workout done.
+### 4. Mid-Interval Feedback
+At 50% progress, concise pace feedback:
+- **Too slow:** "3 saniye yavaşsın, hızlanabilirsin"
+- **Perfect:** "İyi gidiyorsun!"
+- **Too fast:** "2 saniye hızlısın, tempo düşür"
+
+**Dynamic Tolerance Formula:**
+```
+Fast tolerance: -targetPace (5:00 → -5 sec, 4:00 → -4 sec, 3:00 → -3 sec)
+Slow tolerance: 0 sec (no tolerance for slowness)
+```
 
 ## 📄 License
 
@@ -293,11 +332,11 @@ Alperen Üretmen
 ## 🏆 Project Stats
 
 ```
-Total Lines: ~5,000
-Unit Tests: 50 PASSED
+Total Lines: ~5,500
+Unit Tests: 51 PASSED
 Test Coverage: 100% (Domain layer)
-Build Time: ~18s (release APK)
-APK Size: ~25MB (arm64-v8a)
+Build Time: ~28s (release APK)
+APK Size: ~18.5MB (arm64-v8a)
 Min Android: 7.0 (API 24)
 Architecture: Clean Architecture (4 layers)
 ```

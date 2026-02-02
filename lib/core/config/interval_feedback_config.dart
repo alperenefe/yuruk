@@ -14,9 +14,9 @@ class IntervalFeedbackConfig {
     return -targetPaceMinPerKm;
   }
   
-  /// Get upper tolerance (for being slower) - fixed at +5 seconds
+  /// Get upper tolerance (for being slower) - NO tolerance for slowness
   static double getUpperTolerance(double targetPaceMinPerKm) {
-    return 5.0; // +5 sec tolerance for slowness
+    return 0.0; // Yavaşlık toleransı yok
   }
   
   /// Check if pace difference is within acceptable range
