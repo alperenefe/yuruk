@@ -3,21 +3,26 @@ class IntervalFeedbackConfig {
   // Mid-step feedback trigger point
   static const double midStepFeedbackPercentage = 50.0; // At 50% progress
   
-  // Pace tolerance thresholds (in minutes per km)
-  static const double fastPaceThreshold = 5.0; // Below this = fast pace
-  
-  // Dynamic tolerance for being FASTER than target (negative values)
-  static const double fastPaceFastTolerance = -10.0; // For fast paces (<5:00)
-  static const double normalPaceFastTolerance = -5.0; // For normal paces (≥5:00)
-  
-  // Tolerance for being SLOWER than target (positive values)
-  static const double slownessTolerance = 0.0; // 0 = no tolerance, warn immediately
+  // Base tolerance settings
+  static const double baseFastTolerance = -5.0; // Base tolerance for being fast (seconds)
+  static const double fastToleranceMultiplier = 2.0; // Extra tolerance per min/km faster than 5:00
+  static const double slownessTolerance = 0.0; // No tolerance for slowness
   
   /// Get lower tolerance (for being faster) based on target pace
+  /// 
+  /// Logic: Faster target = more tolerance for being fast
+  /// - 3:00 target → -9 sec tolerance (very fast = OK to be faster)
+  /// - 4:00 target → -7 sec tolerance
+  /// - 5:00 target → -5 sec tolerance
+  /// - 6:00 target → -3 sec tolerance (slow = don't go too fast)
   static double getLowerTolerance(double targetPaceMinPerKm) {
-    return targetPaceMinPerKm < fastPaceThreshold
-        ? fastPaceFastTolerance
-        : normalPaceFastTolerance;
+    // Calculate how much faster than 5:00 (reference pace)
+    const referencePace = 5.0;
+    final paceOffset = referencePace - targetPaceMinPerKm;
+    
+    // Subtract extra tolerance for faster paces (more negative = more tolerant)
+    final extraTolerance = paceOffset * fastToleranceMultiplier;
+    return baseFastTolerance - extraTolerance;
   }
   
   /// Get upper tolerance (for being slower) - currently fixed at 0
