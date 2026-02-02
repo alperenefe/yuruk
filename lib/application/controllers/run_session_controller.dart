@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/run_session.dart';
 import '../../domain/entities/track_point.dart';
+import '../../domain/entities/interval_session.dart';
+import '../../domain/entities/workout_plan.dart';
 import '../../domain/repositories/location_repository.dart';
 import '../../domain/repositories/run_session_repository.dart';
 import '../../domain/usecases/start_run_session.dart';
 import '../../domain/usecases/stop_run_session.dart';
 import '../../domain/usecases/update_run_session.dart';
+import '../../domain/usecases/interval_engine.dart';
 import '../../domain/exceptions/location_exceptions.dart';
 import '../../domain/services/announcement_service.dart';
 import '../../infrastructure/tts/flutter_tts_service.dart';
@@ -14,12 +18,14 @@ import '../../infrastructure/background/foreground_task_handler.dart';
 
 class RunSessionState {
   final RunSession? currentSession;
+  final IntervalSession? intervalSession;
   final bool isRunning;
   final bool isLoading;
   final String? error;
 
   RunSessionState({
     this.currentSession,
+    this.intervalSession,
     this.isRunning = false,
     this.isLoading = false,
     this.error,
@@ -27,12 +33,14 @@ class RunSessionState {
 
   RunSessionState copyWith({
     RunSession? currentSession,
+    IntervalSession? intervalSession,
     bool? isRunning,
     bool? isLoading,
     String? error,
   }) {
     return RunSessionState(
       currentSession: currentSession ?? this.currentSession,
+      intervalSession: intervalSession ?? this.intervalSession,
       isRunning: isRunning ?? this.isRunning,
       isLoading: isLoading ?? this.isLoading,
       error: error,
@@ -48,6 +56,7 @@ class RunSessionController extends StateNotifier<RunSessionState> {
   final UpdateRunSession _updateRunSession;
   final FlutterTtsService _ttsService = FlutterTtsService();
   final AnnouncementService _announcementService = AnnouncementService();
+  final IntervalEngine _intervalEngine = IntervalEngine();
 
   StreamSubscription<TrackPoint>? _locationSubscription;
   Timer? _elapsedTimer;
@@ -62,7 +71,7 @@ class RunSessionController extends StateNotifier<RunSessionState> {
     _ttsService.initialize();
   }
 
-  Future<void> startRun() async {
+  Future<void> startRun({WorkoutPlan? workoutPlan}) async {
     state = state.copyWith(isLoading: true, error: null);
     
     try {
@@ -75,10 +84,25 @@ class RunSessionController extends StateNotifier<RunSessionState> {
         error: null,
       );
 
+      // Start interval session if workout plan provided
+      if (workoutPlan != null) {
+        final intervalSession = IntervalSession(workoutPlan: workoutPlan);
+        final startedInterval = _intervalEngine.start(intervalSession);
+        state = state.copyWith(intervalSession: startedInterval);
+        
+        // Announce first step
+        if (startedInterval.currentStep != null) {
+          _ttsService.speak(_announcementService.getIntervalStepStartAnnouncement(
+            startedInterval.currentStep!,
+          ));
+        }
+      } else {
+        // Regular run without intervals
+        _ttsService.speak(_announcementService.getStartAnnouncement());
+      }
+
       // Start foreground service for background tracking
       await ForegroundTaskManager.startService();
-      
-      _ttsService.speak(_announcementService.getStartAnnouncement());
       
       _startElapsedTimer();
 
@@ -92,13 +116,20 @@ class RunSessionController extends StateNotifier<RunSessionState> {
             );
             final newPointCount = updatedSession.trackPoints.length;
             
-            if (newPointCount > oldPointCount) {
-              print('✅ Point ACCEPTED (total: $newPointCount)');
-            } else {
-              print('❌ Point REJECTED');
+            if (kDebugMode) {
+              if (newPointCount > oldPointCount) {
+                print('✅ Point ACCEPTED (total: $newPointCount)');
+              } else {
+                print('❌ Point REJECTED');
+              }
             }
             
             state = state.copyWith(currentSession: updatedSession);
+            
+            // Update interval engine if active
+            if (state.intervalSession != null) {
+              _updateIntervalSession(updatedSession);
+            }
           }
         },
         onError: (error) {
@@ -113,6 +144,30 @@ class RunSessionController extends StateNotifier<RunSessionState> {
       state = state.copyWith(error: e.message, isLoading: false);
     } catch (e) {
       state = state.copyWith(error: 'Bir hata oluştu: ${e.toString()}', isLoading: false);
+    }
+  }
+
+  void _updateIntervalSession(RunSession runSession) {
+    final (updatedInterval, events) = _intervalEngine.update(runSession);
+    state = state.copyWith(intervalSession: updatedInterval);
+    
+    // Process events
+    for (final event in events) {
+      if (event is IntervalStepCompleted) {
+        if (kDebugMode) print('🏁 Interval step ${event.stepIndex} completed');
+        _ttsService.speak(_announcementService.getIntervalStepCompletedAnnouncement(
+          event.step,
+          updatedInterval,
+        ));
+      } else if (event is IntervalStepStarted) {
+        if (kDebugMode) print('🚀 Interval step ${event.stepIndex} started');
+        _ttsService.speak(_announcementService.getIntervalStepStartAnnouncement(
+          event.step,
+        ));
+      } else if (event is IntervalWorkoutCompleted) {
+        if (kDebugMode) print('🎉 Workout completed!');
+        _ttsService.speak(_announcementService.getWorkoutCompletedAnnouncement());
+      }
     }
   }
 
@@ -131,11 +186,13 @@ class RunSessionController extends StateNotifier<RunSessionState> {
 
   Future<void> _fetchInitialPosition() async {
     try {
-      print('🔍 Fetching initial position...');
+      if (kDebugMode) print('🔍 Fetching initial position...');
       final initialPosition = await _locationRepository.getCurrentPosition()
           .timeout(const Duration(seconds: 5));
       
-      print('✅ Initial position: ${initialPosition.accuracy.toStringAsFixed(1)}m');
+      if (kDebugMode) {
+        print('✅ Initial position: ${initialPosition.accuracy.toStringAsFixed(1)}m');
+      }
       
       if (state.currentSession != null) {
         final updatedSession = _updateRunSession.execute(
@@ -145,7 +202,7 @@ class RunSessionController extends StateNotifier<RunSessionState> {
         state = state.copyWith(currentSession: updatedSession);
       }
     } catch (e) {
-      print('⚠️ Initial position timeout');
+      if (kDebugMode) print('⚠️ Initial position timeout: $e');
     }
   }
 

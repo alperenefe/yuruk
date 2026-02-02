@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:equatable/equatable.dart';
+import '../../core/config/gps_filter_config.dart';
 
 class TrackPoint extends Equatable {
   final double latitude;
@@ -21,12 +22,13 @@ class TrackPoint extends Equatable {
   });
 
   bool get isAccurate {
-    return accuracy <= 25.0;
+    return accuracy <= GpsFilterConfig.accuracyThreshold;
   }
 
-  bool isSpeedReasonable({double maxSpeedKmh = 50.0}) {
+  bool isSpeedReasonable({double? maxSpeedKmh}) {
+    final limit = maxSpeedKmh ?? GpsFilterConfig.maxSpeedKmh;
     final speedKmh = speed * 3.6;
-    return speedKmh <= maxSpeedKmh;
+    return speedKmh <= limit;
   }
 
   double distanceTo(TrackPoint other) {

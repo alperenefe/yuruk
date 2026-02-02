@@ -43,6 +43,16 @@ class DatabaseHelper {
         notes TEXT
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE workout_plans (
+        id $idType,
+        name $textType,
+        description TEXT,
+        steps $textType,
+        createdAt $integerType
+      )
+    ''');
   }
 
   Future<void> close() async {

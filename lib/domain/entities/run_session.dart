@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'track_point.dart';
+import '../../core/config/gps_filter_config.dart';
 
 enum RunStatus {
   idle,
@@ -55,14 +56,14 @@ class RunSession extends Equatable {
   }
 
   double get averagePaceMinPerKm {
-    if (totalDistance < 50) return 0; // 50m'den sonra göster
+    if (totalDistance < GpsFilterConfig.minDistanceForPace) return 0;
     final minutes = elapsedTime.inSeconds / 60.0;
     final km = totalDistance / 1000.0;
     return minutes / km;
   }
 
   String get averagePaceFormatted {
-    if (totalDistance < 50) return '--:--'; // 50m'den sonra göster
+    if (totalDistance < GpsFilterConfig.minDistanceForPace) return '--:--'; // 50m'den sonra göster
     final pace = averagePaceMinPerKm;
     final minutes = pace.floor();
     final seconds = ((pace - minutes) * 60).round();

@@ -37,29 +37,42 @@ void main() {
       expect(updated.trackPoints.first, newPoint);
     });
 
-    test('should reject inaccurate points', () {
+    test('should reject inaccurate points after warm-up', () {
       final startTime = DateTime.now();
+      // Create session with 10 points (past warm-up)
+      final existingPoints = List.generate(
+        10,
+        (i) => TrackPoint(
+          latitude: 41.0082,
+          longitude: 28.9784,
+          altitude: 100,
+          accuracy: 10,
+          speed: 3.0,
+          timestamp: startTime.add(Duration(seconds: i)),
+        ),
+      );
+      
       final session = RunSession(
         id: 'test-1',
         startTime: startTime,
         status: RunStatus.running,
-        trackPoints: const [],
-        totalDistance: 0,
-        elapsedTime: Duration.zero,
+        trackPoints: existingPoints,
+        totalDistance: 50,
+        elapsedTime: const Duration(seconds: 10),
       );
 
       final inaccuratePoint = TrackPoint(
         latitude: 41.0082,
         longitude: 28.9784,
         altitude: 100,
-        accuracy: 50,
+        accuracy: 50, // Too inaccurate after warm-up
         speed: 3.0,
-        timestamp: startTime.add(const Duration(seconds: 2)),
+        timestamp: startTime.add(const Duration(seconds: 11)),
       );
 
       final updated = updateRunSession.execute(session, inaccuratePoint);
 
-      expect(updated.trackPoints.length, 0);
+      expect(updated.trackPoints.length, 10); // No new point added
     });
 
     test('should reject points with unreasonable speed', () {

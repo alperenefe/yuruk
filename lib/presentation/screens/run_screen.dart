@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/run_session_provider.dart';
 import '../../domain/entities/track_point.dart';
+import '../../domain/entities/workout_plan.dart';
 import '../../core/di/service_locator.dart';
 import '../../domain/repositories/location_repository.dart';
+import '../../domain/repositories/workout_repository.dart';
 import '../widgets/run_map_widget.dart';
 
 class RunScreen extends ConsumerStatefulWidget {
@@ -15,6 +18,8 @@ class RunScreen extends ConsumerStatefulWidget {
 
 class _RunScreenState extends ConsumerState<RunScreen> {
   TrackPoint? _initialPosition;
+  WorkoutPlan? _selectedPlan;
+  final WorkoutRepository _workoutRepository = getIt<WorkoutRepository>();
 
   @override
   void initState() {
@@ -32,7 +37,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
         });
       }
     } catch (e) {
-      print('⚠️ Could not get initial position: $e');
+      if (kDebugMode) print('⚠️ Could not get initial position: $e');
     }
   }
 
@@ -108,6 +113,8 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                     ],
                   ),
                   
+                  if (!state.isRunning) _buildWorkoutPlanSelector(),
+                  
                   SizedBox(
                     width: double.infinity,
                     height: 56,
@@ -116,7 +123,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                           ? null
                           : (state.isRunning
                               ? () => controller.stopRun()
-                              : () => controller.startRun()),
+                              : () => controller.startRun(workoutPlan: _selectedPlan)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: state.isRunning ? Colors.red : Colors.green,
                         disabledBackgroundColor: Colors.grey,
@@ -185,5 +192,115 @@ class _RunScreenState extends ConsumerState<RunScreen> {
       return '${hours}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
     }
     return '${minutes}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildWorkoutPlanSelector() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      child: InkWell(
+        onTap: _showPlanSelector,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _selectedPlan != null ? Colors.orange.shade50 : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _selectedPlan != null ? Colors.orange : Colors.grey.shade300,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _selectedPlan != null ? Icons.fitness_center : Icons.list,
+                color: _selectedPlan != null ? Colors.orange : Colors.grey,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _selectedPlan != null ? _selectedPlan!.name : 'Plan Seç',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: _selectedPlan != null ? Colors.orange.shade900 : Colors.grey.shade700,
+                  fontWeight: _selectedPlan != null ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              if (_selectedPlan != null) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => setState(() => _selectedPlan = null),
+                  child: Icon(Icons.close, size: 16, color: Colors.grey.shade600),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showPlanSelector() async {
+    final plans = await _workoutRepository.getAllPlans();
+    
+    if (!mounted) return;
+
+    if (plans.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Henüz plan yok. "Etkinlikler" sekmesinden oluştur.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Text(
+                    'Etkinlik Planı Seç',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            ListView.builder(
+              shrinkWrap: true,
+              itemCount: plans.length,
+              itemBuilder: (context, index) {
+                final plan = plans[index];
+                return ListTile(
+                  leading: const Icon(Icons.fitness_center, color: Colors.orange),
+                  title: Text(plan.name),
+                  subtitle: Text('${plan.stepCount} adım'),
+                  trailing: _selectedPlan?.id == plan.id
+                      ? const Icon(Icons.check_circle, color: Colors.green)
+                      : null,
+                  onTap: () {
+                    setState(() => _selectedPlan = plan);
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
   }
 }

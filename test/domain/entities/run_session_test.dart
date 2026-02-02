@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yuruk/domain/entities/run_session.dart';
-import 'package:yuruk/domain/entities/track_point.dart';
 
 void main() {
   group('RunSession', () {
@@ -17,13 +16,13 @@ void main() {
       expect(session.averagePaceMinPerKm, 5.0);
     });
 
-    test('should return 0 pace when distance < 100m', () {
+    test('should return 0 pace when distance < 50m', () {
       final session = RunSession(
         id: 'test-1',
         startTime: DateTime.now(),
         status: RunStatus.running,
         trackPoints: const [],
-        totalDistance: 50,
+        totalDistance: 30,
         elapsedTime: const Duration(minutes: 5),
       );
 
@@ -43,13 +42,13 @@ void main() {
       expect(session.averagePaceFormatted, '05:30');
     });
 
-    test('should return "--:--" when distance < 100m', () {
+    test('should return "--:--" when distance < 50m', () {
       final session = RunSession(
         id: 'test-1',
         startTime: DateTime.now(),
         status: RunStatus.running,
         trackPoints: const [],
-        totalDistance: 50,
+        totalDistance: 30,
         elapsedTime: const Duration(minutes: 5),
       );
 

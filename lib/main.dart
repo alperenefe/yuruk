@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/di/service_locator.dart';
 import 'presentation/screens/run_screen.dart';
 import 'presentation/screens/history_screen.dart';
+import 'presentation/screens/workouts_screen.dart';
 import 'infrastructure/background/foreground_task_handler.dart';
 
 void main() async {
@@ -44,6 +45,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = const [
     RunScreen(),
+    WorkoutsScreen(),
     HistoryScreen(),
   ];
 
@@ -58,6 +60,10 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.directions_run),
             label: 'Koş',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.fitness_center),
+            label: 'Etkinlikler',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.history),

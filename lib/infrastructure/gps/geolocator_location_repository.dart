@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../domain/entities/track_point.dart';
 import '../../domain/repositories/location_repository.dart';
@@ -49,9 +50,11 @@ class GeolocatorLocationRepository implements LocationRepository {
             timestamp: position.timestamp,
           );
           
-          print('📍 GPS: raw=(${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}) '
-                'filtered=(${filtered[0].toStringAsFixed(6)}, ${filtered[1].toStringAsFixed(6)}) '
-                'acc=${position.accuracy.toStringAsFixed(1)}m');
+          if (kDebugMode) {
+            print('📍 GPS: raw=(${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}) '
+                  'filtered=(${filtered[0].toStringAsFixed(6)}, ${filtered[1].toStringAsFixed(6)}) '
+                  'acc=${position.accuracy.toStringAsFixed(1)}m');
+          }
           
           _trackPointController!.add(trackPoint);
         }
