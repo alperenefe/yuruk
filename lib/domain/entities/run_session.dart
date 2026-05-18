@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'named_track_segment.dart';
 import 'track_point.dart';
 import '../../core/config/gps_filter_config.dart';
 
@@ -14,6 +15,8 @@ class RunSession extends Equatable {
   final DateTime? endTime;
   final RunStatus status;
   final List<TrackPoint> trackPoints;
+  final List<TrackPoint> rawTrackPoints;
+  final List<NamedTrackSegment> filterExportTracks;
   final double totalDistance;
   final Duration elapsedTime;
   final int? averageBpm;
@@ -25,11 +28,21 @@ class RunSession extends Equatable {
     this.endTime,
     required this.status,
     required this.trackPoints,
+    this.rawTrackPoints = const [],
+    this.filterExportTracks = const [],
     required this.totalDistance,
     required this.elapsedTime,
     this.averageBpm,
     this.notes,
   });
+
+  List<TrackPoint> get labInputPoints =>
+      rawTrackPoints.isNotEmpty ? rawTrackPoints : trackPoints;
+
+  bool get hasGpxGeometry =>
+      rawTrackPoints.isNotEmpty ||
+      trackPoints.isNotEmpty ||
+      filterExportTracks.any((s) => s.points.isNotEmpty);
 
   RunSession copyWith({
     String? id,
@@ -37,6 +50,8 @@ class RunSession extends Equatable {
     DateTime? endTime,
     RunStatus? status,
     List<TrackPoint>? trackPoints,
+    List<TrackPoint>? rawTrackPoints,
+    List<NamedTrackSegment>? filterExportTracks,
     double? totalDistance,
     Duration? elapsedTime,
     int? averageBpm,
@@ -48,6 +63,8 @@ class RunSession extends Equatable {
       endTime: endTime ?? this.endTime,
       status: status ?? this.status,
       trackPoints: trackPoints ?? this.trackPoints,
+      rawTrackPoints: rawTrackPoints ?? this.rawTrackPoints,
+      filterExportTracks: filterExportTracks ?? this.filterExportTracks,
       totalDistance: totalDistance ?? this.totalDistance,
       elapsedTime: elapsedTime ?? this.elapsedTime,
       averageBpm: averageBpm ?? this.averageBpm,
@@ -77,6 +94,8 @@ class RunSession extends Equatable {
     endTime,
     status,
     trackPoints,
+    rawTrackPoints,
+    filterExportTracks,
     totalDistance,
     elapsedTime,
     averageBpm,

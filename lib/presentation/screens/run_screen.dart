@@ -2,12 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/run_session_provider.dart';
+import '../../domain/entities/run_session.dart';
 import '../../domain/entities/track_point.dart';
 import '../../domain/entities/workout_plan.dart';
 import '../../core/di/service_locator.dart';
 import '../../domain/repositories/location_repository.dart';
 import '../../domain/repositories/workout_repository.dart';
+import '../utils/run_share.dart';
 import '../widgets/run_map_widget.dart';
+import '../widgets/algorithm_legend_widget.dart';
 
 class RunScreen extends ConsumerStatefulWidget {
   const RunScreen({super.key});
@@ -24,20 +27,30 @@ class _RunScreenState extends ConsumerState<RunScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchInitialPosition();
+    _requestPermissionAndFetchPosition();
   }
 
-  Future<void> _fetchInitialPosition() async {
+  Future<void> _requestPermissionAndFetchPosition() async {
+    final locationRepo = getIt<LocationRepository>();
+
+    final hasPermission = await locationRepo.requestPermission();
+    if (!hasPermission) return;
+
     try {
-      final locationRepo = getIt<LocationRepository>();
-      final position = await locationRepo.getCurrentPosition();
+      final last = await locationRepo.getLastKnownPosition();
+      if (last != null && mounted) {
+        setState(() => _initialPosition = last);
+      }
+    } catch (_) {}
+
+    try {
+      final accurate = await locationRepo.getCurrentPosition()
+          .timeout(const Duration(minutes: 1));
       if (mounted) {
-        setState(() {
-          _initialPosition = position;
-        });
+        setState(() => _initialPosition = accurate);
       }
     } catch (e) {
-      if (kDebugMode) print('⚠️ Could not get initial position: $e');
+      if (kDebugMode) print('⚠️ Could not get accurate position: $e');
     }
   }
 
@@ -51,11 +64,25 @@ class _RunScreenState extends ConsumerState<RunScreen> {
         ? state.currentSession!.trackPoints.last
         : _initialPosition;
 
+    final stoppedWithTrack = !state.isRunning &&
+        state.currentSession != null &&
+        state.currentSession!.status == RunStatus.stopped &&
+        state.currentSession!.trackPoints.isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Yürük'),
         backgroundColor: Colors.blue,
         elevation: 0,
+        actions: [
+          if (stoppedWithTrack)
+            IconButton(
+              tooltip: 'GPX paylaş',
+              icon: const Icon(Icons.share),
+              onPressed: () =>
+                  RunShare.share(context, state.currentSession!),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -64,8 +91,12 @@ class _RunScreenState extends ConsumerState<RunScreen> {
             child: RunMapWidget(
               currentPosition: currentPosition,
               routePoints: state.currentSession?.trackPoints ?? [],
+              algorithmResults: state.algorithmResults,
             ),
           ),
+
+          if (state.isRunning && state.algorithmResults.isNotEmpty)
+            AlgorithmLegendWidget(results: state.algorithmResults),
           
           Expanded(
             flex: 1,
@@ -118,7 +149,17 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                       const SizedBox(height: 12),
                       _buildWorkoutPlanSelector(),
                     ],
-                    
+
+                    if (stoppedWithTrack) ...[
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            RunShare.share(context, state.currentSession!),
+                        icon: const Icon(Icons.share),
+                        label: const Text('GPX paylaş (WhatsApp vb.)'),
+                      ),
+                    ],
+
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,

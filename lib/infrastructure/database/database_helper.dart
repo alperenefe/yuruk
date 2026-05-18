@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -42,6 +42,10 @@ class DatabaseHelper {
         )
       ''');
     }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE run_sessions ADD COLUMN rawTrackPoints TEXT');
+      await db.execute('ALTER TABLE run_sessions ADD COLUMN filterExports TEXT');
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -50,19 +54,21 @@ class DatabaseHelper {
     const integerType = 'INTEGER NOT NULL';
     const realType = 'REAL NOT NULL';
 
-    await db.execute('''
-      CREATE TABLE run_sessions (
-        id $idType,
-        startTime $integerType,
-        endTime INTEGER,
-        status $textType,
-        trackPoints $textType,
-        totalDistance $realType,
-        elapsedTime $integerType,
-        averageBpm INTEGER,
-        notes TEXT
-      )
-    ''');
+      await db.execute('''
+        CREATE TABLE run_sessions (
+          id $idType,
+          startTime $integerType,
+          endTime INTEGER,
+          status $textType,
+          trackPoints $textType,
+          rawTrackPoints TEXT,
+          filterExports TEXT,
+          totalDistance $realType,
+          elapsedTime $integerType,
+          averageBpm INTEGER,
+          notes TEXT
+        )
+      ''');
 
     await db.execute('''
       CREATE TABLE workout_plans (

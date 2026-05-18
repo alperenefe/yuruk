@@ -12,4 +12,6 @@ abstract class LocationRepository {
   Future<bool> requestPermission();
   
   Future<TrackPoint> getCurrentPosition();
+  
+  Future<TrackPoint?> getLastKnownPosition();
 }

@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../domain/entities/track_point.dart';
+import '../../core/filters/gps_filter_pipeline.dart';
+import '../map/osm_map_tiles.dart';
 
 class RunMapWidget extends StatefulWidget {
   final TrackPoint? currentPosition;
   final List<TrackPoint> routePoints;
+  final List<FilteredTrackResult> algorithmResults;
   final VoidCallback? onRecenter;
 
   const RunMapWidget({
     super.key,
     this.currentPosition,
     required this.routePoints,
+    this.algorithmResults = const [],
     this.onRecenter,
   });
 
@@ -21,6 +25,7 @@ class RunMapWidget extends StatefulWidget {
 
 class _RunMapWidgetState extends State<RunMapWidget> {
   final MapController _mapController = MapController();
+  final NetworkTileProvider _osmTileProvider = OsmMapTiles.createTileProvider();
   bool _isAutoCenter = true;
   bool _isMapReady = false;
 
@@ -107,13 +112,27 @@ class _RunMapWidgetState extends State<RunMapWidget> {
           ),
           children: [
             TileLayer(
-              // HTTP kullan (SSL sorunu için geçici çözüm)
-              urlTemplate: 'http://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.trendyol.yuruk',
-              tileProvider: NetworkTileProvider(),
+              urlTemplate: OsmMapTiles.urlTemplate,
+              userAgentPackageName: 'com.trendyol.yuruk.yuruk',
+              tileProvider: _osmTileProvider,
             ),
-            
-            if (routeLatLngs.isNotEmpty)
+
+            if (widget.algorithmResults.isNotEmpty)
+              PolylineLayer(
+                polylines: widget.algorithmResults
+                    .where((r) => r.points.length >= 2)
+                    .map(
+                      (r) => Polyline(
+                        points: r.points
+                            .map((p) => LatLng(p.latitude, p.longitude))
+                            .toList(),
+                        strokeWidth: 3.0,
+                        color: r.params.color.withValues(alpha: 0.85),
+                      ),
+                    )
+                    .toList(),
+              )
+            else if (routeLatLngs.isNotEmpty)
               PolylineLayer(
                 polylines: [
                   Polyline(

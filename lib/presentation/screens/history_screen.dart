@@ -3,6 +3,8 @@ import '../../core/di/service_locator.dart';
 import '../../domain/entities/run_session.dart';
 import '../../domain/repositories/run_session_repository.dart';
 
+import '../utils/run_share.dart';
+
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
@@ -127,9 +129,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             ),
                           ],
                         ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _showDeleteDialog(session),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'GPX paylaş',
+                              icon: const Icon(Icons.share, color: Colors.blue),
+                              onPressed: () =>
+                                  RunShare.share(context, session),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _showDeleteDialog(session),
+                            ),
+                          ],
                         ),
                         onTap: () {
                           // TODO: Navigate to detail screen

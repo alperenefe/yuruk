@@ -29,6 +29,8 @@ class StartRunSession {
       startTime: DateTime.now(),
       status: RunStatus.running,
       trackPoints: const [],
+      rawTrackPoints: const [],
+      filterExportTracks: const [],
       totalDistance: 0,
       elapsedTime: Duration.zero,
     );

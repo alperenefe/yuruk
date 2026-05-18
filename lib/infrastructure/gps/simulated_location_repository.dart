@@ -92,6 +92,11 @@ class SimulatedLocationRepository implements LocationRepository {
   }
 
   @override
+  Future<TrackPoint?> getLastKnownPosition() async {
+    return getCurrentPosition();
+  }
+
+  @override
   Stream<TrackPoint> getLocationStream() {
     _trackPointController = StreamController<TrackPoint>.broadcast();
     _currentPointIndex = 0;

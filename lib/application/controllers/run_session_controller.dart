@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/entities/named_track_segment.dart';
 import '../../domain/entities/run_session.dart';
 import '../../domain/entities/track_point.dart';
 import '../../domain/entities/interval_session.dart';
@@ -9,13 +10,14 @@ import '../../domain/repositories/location_repository.dart';
 import '../../domain/repositories/run_session_repository.dart';
 import '../../domain/usecases/start_run_session.dart';
 import '../../domain/usecases/stop_run_session.dart';
-import '../../domain/usecases/update_run_session.dart';
 import '../../domain/usecases/interval_engine.dart';
 import '../../domain/exceptions/location_exceptions.dart';
 import '../../domain/services/announcement_service.dart';
 import '../../infrastructure/tts/flutter_tts_service.dart';
 import '../../infrastructure/background/foreground_task_handler.dart';
 import '../../infrastructure/gps/simulated_location_repository.dart';
+import '../../core/filters/gps_filter_pipeline.dart';
+import '../../core/filters/live_algorithm_comparator.dart';
 
 class RunSessionState {
   final RunSession? currentSession;
@@ -23,6 +25,7 @@ class RunSessionState {
   final bool isRunning;
   final bool isLoading;
   final String? error;
+  final List<FilteredTrackResult> algorithmResults;
 
   RunSessionState({
     this.currentSession,
@@ -30,6 +33,7 @@ class RunSessionState {
     this.isRunning = false,
     this.isLoading = false,
     this.error,
+    this.algorithmResults = const [],
   });
 
   RunSessionState copyWith({
@@ -38,6 +42,7 @@ class RunSessionState {
     bool? isRunning,
     bool? isLoading,
     String? error,
+    List<FilteredTrackResult>? algorithmResults,
   }) {
     return RunSessionState(
       currentSession: currentSession ?? this.currentSession,
@@ -45,6 +50,7 @@ class RunSessionState {
       isRunning: isRunning ?? this.isRunning,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      algorithmResults: algorithmResults ?? this.algorithmResults,
     );
   }
 }
@@ -54,7 +60,6 @@ class RunSessionController extends StateNotifier<RunSessionState> {
   final RunSessionRepository _runSessionRepository;
   final StartRunSession _startRunSession;
   final StopRunSession _stopRunSession;
-  final UpdateRunSession _updateRunSession;
   final FlutterTtsService _ttsService = FlutterTtsService();
   final AnnouncementService _announcementService = AnnouncementService();
   final IntervalEngine _intervalEngine = IntervalEngine();
@@ -62,12 +67,13 @@ class RunSessionController extends StateNotifier<RunSessionState> {
   StreamSubscription<TrackPoint>? _locationSubscription;
   Timer? _elapsedTimer;
 
+  final LiveAlgorithmComparator _comparator = LiveAlgorithmComparator();
+
   RunSessionController(
     this._locationRepository,
     this._runSessionRepository,
   )   : _startRunSession = StartRunSession(_locationRepository),
         _stopRunSession = StopRunSession(_locationRepository, _runSessionRepository),
-        _updateRunSession = UpdateRunSession(),
         super(RunSessionState()) {
     _ttsService.initialize();
   }
@@ -102,37 +108,38 @@ class RunSessionController extends StateNotifier<RunSessionState> {
         _ttsService.speak(_announcementService.getStartAnnouncement());
       }
 
-      // Start foreground service for background tracking (skip for simulated GPS)
+      _comparator.reset();
+
       final isSimulated = _locationRepository is SimulatedLocationRepository;
       if (!isSimulated) {
-        await ForegroundTaskManager.startService();
+        try {
+          await ForegroundTaskManager.startService();
+        } catch (_) {}
       } else if (kDebugMode) {
         print('⏩ Skipping foreground service (simulated GPS)');
       }
-      
+
       _startElapsedTimer();
 
       _locationSubscription = _locationRepository.getLocationStream().listen(
         (trackPoint) {
+          if (!state.isRunning) return;
+          _comparator.process(trackPoint);
+          final results = _comparator.results;
+          state = state.copyWith(algorithmResults: results);
+
           if (state.currentSession != null) {
-            final oldPointCount = state.currentSession!.trackPoints.length;
-            final updatedSession = _updateRunSession.execute(
-              state.currentSession!,
-              trackPoint,
+            final primary = _comparator.primaryResult;
+            final rawList = List<TrackPoint>.from(state.currentSession!.rawTrackPoints)
+              ..add(trackPoint);
+            final updatedSession = state.currentSession!.copyWith(
+              trackPoints: List<TrackPoint>.from(primary.points),
+              rawTrackPoints: rawList,
+              totalDistance: primary.totalDistance,
+              elapsedTime: state.currentSession!.elapsedTime,
             );
-            final newPointCount = updatedSession.trackPoints.length;
-            
-            if (kDebugMode) {
-              if (newPointCount > oldPointCount) {
-                print('✅ Point ACCEPTED (total: $newPointCount)');
-              } else {
-                print('❌ Point REJECTED');
-              }
-            }
-            
             state = state.copyWith(currentSession: updatedSession);
-            
-            // Update interval engine if active
+
             if (state.intervalSession != null) {
               _updateIntervalSession(updatedSession);
             }
@@ -142,8 +149,6 @@ class RunSessionController extends StateNotifier<RunSessionState> {
           state = state.copyWith(error: error.toString());
         },
       );
-      
-      _fetchInitialPosition();
     } on LocationServiceDisabledException catch (e) {
       state = state.copyWith(error: e.message, isLoading: false);
     } on LocationPermissionDeniedException catch (e) {
@@ -199,54 +204,46 @@ class RunSessionController extends StateNotifier<RunSessionState> {
     });
   }
 
-  Future<void> _fetchInitialPosition() async {
-    try {
-      if (kDebugMode) print('🔍 Fetching initial position...');
-      final initialPosition = await _locationRepository.getCurrentPosition()
-          .timeout(const Duration(seconds: 5));
-      
-      if (kDebugMode) {
-        print('✅ Initial position: ${initialPosition.accuracy.toStringAsFixed(1)}m');
-      }
-      
-      if (state.currentSession != null) {
-        final updatedSession = _updateRunSession.execute(
-          state.currentSession!,
-          initialPosition,
-        );
-        state = state.copyWith(currentSession: updatedSession);
-      }
-    } catch (e) {
-      if (kDebugMode) print('⚠️ Initial position timeout: $e');
-    }
-  }
-
   Future<void> stopRun() async {
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
+
+    await _locationSubscription?.cancel();
+    _locationSubscription = null;
+
     try {
-      _elapsedTimer?.cancel();
-      _elapsedTimer = null;
-      
       if (state.currentSession != null) {
-        final stoppedSession = await _stopRunSession.execute(state.currentSession!);
+        final filterExports = state.algorithmResults
+            .map(
+              (r) => NamedTrackSegment(
+                name: r.params.name,
+                points: List<TrackPoint>.from(r.points),
+              ),
+            )
+            .toList();
+        final sessionToSave = state.currentSession!.copyWith(
+          filterExportTracks: filterExports,
+        );
+        state = state.copyWith(currentSession: sessionToSave);
+
+        final stoppedSession = await _stopRunSession.execute(sessionToSave);
         _ttsService.speak(_announcementService.getStopAnnouncement(stoppedSession));
-        
+
         state = state.copyWith(
           currentSession: stoppedSession,
           isRunning: false,
           error: null,
         );
+      } else {
+        state = state.copyWith(isRunning: false, error: null);
       }
-
-      // Stop foreground service (skip for simulated GPS)
+    } catch (e) {
+      state = state.copyWith(isRunning: false, error: e.toString());
+    } finally {
       final isSimulated = _locationRepository is SimulatedLocationRepository;
       if (!isSimulated) {
-        await ForegroundTaskManager.stopService();
+        await ForegroundTaskManager.stopServiceSafe();
       }
-      
-      await _locationSubscription?.cancel();
-      _locationSubscription = null;
-    } catch (e) {
-      state = state.copyWith(error: e.toString());
     }
   }
 

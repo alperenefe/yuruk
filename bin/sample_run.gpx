@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="yuruk-sample">
+  <trk>
+    <name>Sample 400m</name>
+    <trkseg>
+      <trkpt lat="39.920800" lon="32.854100"><ele>850</ele><time>2026-05-17T08:00:00Z</time></trkpt>
+      <trkpt lat="39.921000" lon="32.854200"><ele>851</ele><time>2026-05-17T08:00:02Z</time></trkpt>
+      <trkpt lat="39.921200" lon="32.854350"><ele>852</ele><time>2026-05-17T08:00:04Z</time></trkpt>
+      <trkpt lat="39.921350" lon="32.854550"><ele>853</ele><time>2026-05-17T08:00:06Z</time></trkpt>
+      <trkpt lat="39.921500" lon="32.854800"><ele>854</ele><time>2026-05-17T08:00:08Z</time></trkpt>
+      <trkpt lat="39.921650" lon="32.855050"><ele>855</ele><time>2026-05-17T08:00:10Z</time></trkpt>
+      <trkpt lat="39.921800" lon="32.855300"><ele>856</ele><time>2026-05-17T08:00:12Z</time></trkpt>
+      <trkpt lat="39.921950" lon="32.855550"><ele>857</ele><time>2026-05-17T08:00:14Z</time></trkpt>
+      <trkpt lat="39.922100" lon="32.855800"><ele>858</ele><time>2026-05-17T08:00:16Z</time></trkpt>
+      <trkpt lat="39.922250" lon="32.856050"><ele>859</ele><time>2026-05-17T08:00:18Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

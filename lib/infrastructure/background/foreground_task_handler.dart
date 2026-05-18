@@ -63,6 +63,14 @@ class ForegroundTaskManager {
     }
   }
 
+  static Future<void> stopServiceSafe() async {
+    try {
+      if (await FlutterForegroundTask.isRunningService) {
+        await FlutterForegroundTask.stopService();
+      }
+    } catch (_) {}
+  }
+
   static Future<ServiceRequestResult> stopService() async {
     return await FlutterForegroundTask.stopService();
   }
