@@ -1,5 +1,7 @@
-# Yalnizca sen tetikleyince: release APK + Firebase App Distribution.
-# Otomatik push yok — GitHub Actions → Run workflow.
+# APK dagitimi — her push'ta DEGIL:
+#   - commit mesajinda [apk] veya [dagit]  → push ile otomatik
+#   - .\scripts\git-push.ps1 -Deploy       → push + workflow (GitHub UI yok)
+#   - Actions → Run workflow               → elle (yedek)
 
 name: Android Firebase Distribute
 
@@ -10,6 +12,9 @@ on:
         description: "Firebase release notlari (istege bagli)"
         required: false
         default: ""
+  push:
+    branches:
+      - main
 
 concurrency:
   group: android-firebase-${{ github.ref }}
@@ -17,6 +22,12 @@ concurrency:
 
 jobs:
   build-and-distribute:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && (
+        contains(github.event.head_commit.message, '[apk]') ||
+        contains(github.event.head_commit.message, '[dagit]')
+      ))
     runs-on: ubuntu-latest
     timeout-minutes: 45
 

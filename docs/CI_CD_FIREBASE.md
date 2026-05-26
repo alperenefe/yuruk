@@ -46,9 +46,13 @@ Service account ve **Firebase App Testers API** bir kez açıldıysa tekrar gere
 
 ## Dağıtım
 
-1. `git push` — otomatik APK **yok**.
-2. Actions → **Android Firebase Distribute** → **Run workflow** (~10–15 dk).
-3. Telefonda Firebase maili / link → **Kur**.
+| İstek | Komut |
+|--------|--------|
+| Sadece kod | `git push` veya `.\scripts\git-push.ps1` |
+| Kod + APK | `.\scripts\git-push.ps1 -Deploy` |
+| Commit ile APK | `git commit -m "… [apk]"` + `git push` |
+
+~10–15 dk sonra Firebase maili / link → **Kur**.
 
 ---
 
