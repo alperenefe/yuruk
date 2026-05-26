@@ -4,17 +4,18 @@ import 'package:latlong2/latlong.dart';
 import '../../core/filters/gps_filter_pipeline.dart';
 import '../map/osm_map_tiles.dart';
 import '../../domain/entities/track_point.dart';
+import '../utils/format_utils.dart';
 
 class ComparisonMapWidget extends StatefulWidget {
   final List<FilteredTrackResult> results;
   final List<bool> visibleConfigs;
-  final TrackPoint? centerPoint;
+  final void Function(int index)? onToggleVisibility;
 
   const ComparisonMapWidget({
     super.key,
     required this.results,
     required this.visibleConfigs,
-    this.centerPoint,
+    this.onToggleVisibility,
   });
 
   @override
@@ -27,16 +28,13 @@ class _ComparisonMapWidgetState extends State<ComparisonMapWidget> {
   bool _isMapReady = false;
 
   LatLng get _center {
-    if (widget.centerPoint != null) {
-      return LatLng(widget.centerPoint!.latitude, widget.centerPoint!.longitude);
-    }
     for (int i = 0; i < widget.results.length; i++) {
       final r = widget.results[i];
       if (r.points.isNotEmpty) {
         return LatLng(r.points.first.latitude, r.points.first.longitude);
       }
     }
-    return const LatLng(39.9208, 32.8541);
+    return kDefaultMapCenter;
   }
 
   void _fitBounds() {
@@ -134,6 +132,7 @@ class _ComparisonMapWidgetState extends State<ComparisonMapWidget> {
           child: _Legend(
             results: widget.results,
             visibleConfigs: widget.visibleConfigs,
+            onToggle: widget.onToggleVisibility,
           ),
         ),
         Positioned(
@@ -206,8 +205,13 @@ class _ComparisonMapWidgetState extends State<ComparisonMapWidget> {
 class _Legend extends StatelessWidget {
   final List<FilteredTrackResult> results;
   final List<bool> visibleConfigs;
+  final void Function(int index)? onToggle;
 
-  const _Legend({required this.results, required this.visibleConfigs});
+  const _Legend({
+    required this.results,
+    required this.visibleConfigs,
+    this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -216,46 +220,51 @@ class _Legend extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           for (int i = 0; i < results.length; i++)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 18,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: i < visibleConfigs.length && visibleConfigs[i]
-                          ? results[i].params.color
-                          : Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
+            GestureDetector(
+              onTap: onToggle != null ? () => onToggle!(i) : null,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 18,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: i < visibleConfigs.length && visibleConfigs[i]
+                            ? results[i].params.color
+                            : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    results[i].params.name,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: i < visibleConfigs.length && visibleConfigs[i]
-                          ? Colors.black87
-                          : Colors.grey,
-                      fontWeight: FontWeight.w500,
+                    const SizedBox(width: 6),
+                    Text(
+                      results[i].params.name,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: i < visibleConfigs.length && visibleConfigs[i]
+                            ? Colors.black87
+                            : Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
         ],

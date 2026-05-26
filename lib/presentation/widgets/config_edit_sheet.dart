@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/config/gps_filter_params.dart';
+import 'filter_config_controls.dart';
 
 class ConfigEditSheet extends StatefulWidget {
   final GpsFilterParams initial;
@@ -26,11 +27,7 @@ class ConfigEditSheet extends StatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => ConfigEditSheet(
-        initial: initial,
-        title: title,
-        onSave: onSave,
-      ),
+      builder: (_) => ConfigEditSheet(initial: initial, title: title, onSave: onSave),
     );
   }
 
@@ -39,66 +36,91 @@ class ConfigEditSheet extends StatefulWidget {
 }
 
 class _ConfigEditSheetState extends State<ConfigEditSheet> {
-  late final TextEditingController _nameController;
+  // ── Alan state'leri ──────────────────────────────────────────────────────
+  late final TextEditingController _nameCtrl;
   late Color _color;
-  late bool _useKalman;
-  late double _kalmanQ;
-  late double _kalmanR;
+
+  // GPS eşikleri
   late double _accuracyThreshold;
   late double _maxSpeedKmh;
   late double _maxImpliedSpeedKmh;
-  late double _warmUpCount;
-  late double _warmUpMinDistance;
-  late double _postWarmUpMinDistance;
   late double _stationarySpeedThreshold;
   late double _poorAccuracyThreshold;
 
-  static const List<double> _kalmanQOptions = [
-    0.000001, 0.00001, 0.0001, 0.001, 0.01,
-  ];
-  static const List<double> _kalmanROptions = [
-    0.0001, 0.001, 0.01, 0.05, 0.1,
-  ];
+  // Mesafe
+  late double _warmUpCount;
+  late double _warmUpMinDistance;
+  late double _postWarmUpMinDistance;
+
+  // Spike Guard
+  late double _rawSpikeSpeedMs;
+
+  // IIR Adaptive
+  late bool _useAdaptiveIir;
+  late double _iirAlphaSteady;
+  late double _iirAlphaPaceChange;
+  late double _iirAlphaStop;
+  late double _speedChangeThresholdMs;
+
+  // Kalman
+  late bool _useKalman;
+  late double _kalmanQ;
+  late double _kalmanR;
+
+  static const _kalmanQOptions = [0.000001, 0.00001, 0.0001, 0.001, 0.01];
+  static const _kalmanROptions = [0.0001, 0.001, 0.01, 0.05, 0.1];
 
   @override
   void initState() {
     super.initState();
     final p = widget.initial;
-    _nameController = TextEditingController(text: p.name);
+    _nameCtrl = TextEditingController(text: p.name);
     _color = p.color;
-    _useKalman = p.useKalman;
-    _kalmanQ = p.kalmanLatLngQ;
-    _kalmanR = p.kalmanLatLngR;
     _accuracyThreshold = p.accuracyThreshold.clamp(1, 200);
     _maxSpeedKmh = p.maxSpeedKmh.clamp(5, 200);
     _maxImpliedSpeedKmh = p.maxImpliedSpeedKmh.clamp(10, 300);
+    _stationarySpeedThreshold = p.stationarySpeedThreshold.clamp(0, 3);
+    _poorAccuracyThreshold = p.poorAccuracyThreshold.clamp(1, 100);
     _warmUpCount = p.warmUpCount.toDouble().clamp(0, 30);
     _warmUpMinDistance = p.warmUpMinDistance.clamp(0, 20);
     _postWarmUpMinDistance = p.postWarmUpMinDistance.clamp(0, 30);
-    _stationarySpeedThreshold = p.stationarySpeedThreshold.clamp(0, 3);
-    _poorAccuracyThreshold = p.poorAccuracyThreshold.clamp(1, 100);
+    _rawSpikeSpeedMs = p.rawSpikeSpeedMs.clamp(0, 20);
+    _useAdaptiveIir = p.useAdaptiveIir;
+    _iirAlphaSteady = p.iirAlphaSteady.clamp(0.0, 1.0);
+    _iirAlphaPaceChange = p.iirAlphaPaceChange.clamp(0.0, 1.0);
+    _iirAlphaStop = p.iirAlphaStop.clamp(0.0, 0.5);
+    _speedChangeThresholdMs = p.speedChangeThresholdMs.clamp(0.1, 3.0);
+    _useKalman = p.useKalman;
+    _kalmanQ = p.kalmanLatLngQ;
+    _kalmanR = p.kalmanLatLngR;
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _nameCtrl.dispose();
     super.dispose();
   }
 
   GpsFilterParams _buildParams() => GpsFilterParams(
-        name: _nameController.text.isEmpty ? 'Config' : _nameController.text,
+        name: _nameCtrl.text.isEmpty ? 'Config' : _nameCtrl.text,
         color: _color,
-        useKalman: _useKalman,
+        useKalman: _useAdaptiveIir ? false : _useKalman,
         kalmanLatLngQ: _kalmanQ,
         kalmanLatLngR: _kalmanR,
-        accuracyThreshold: _accuracyThreshold == 200 ? 9999 : _accuracyThreshold,
-        maxSpeedKmh: _maxSpeedKmh == 200 ? 9999 : _maxSpeedKmh,
-        maxImpliedSpeedKmh: _maxImpliedSpeedKmh == 300 ? 9999 : _maxImpliedSpeedKmh,
+        accuracyThreshold: _accuracyThreshold >= 200 ? 9999 : _accuracyThreshold,
+        maxSpeedKmh: _maxSpeedKmh >= 200 ? 9999 : _maxSpeedKmh,
+        maxImpliedSpeedKmh: _maxImpliedSpeedKmh >= 300 ? 9999 : _maxImpliedSpeedKmh,
         warmUpCount: _warmUpCount.round(),
-        warmUpMinDistance: _warmUpMinDistance == 0 ? 0 : _warmUpMinDistance,
+        warmUpMinDistance: _warmUpMinDistance,
         postWarmUpMinDistance: _postWarmUpMinDistance,
         stationarySpeedThreshold: _stationarySpeedThreshold,
-        poorAccuracyThreshold: _poorAccuracyThreshold == 100 ? 9999 : _poorAccuracyThreshold,
+        poorAccuracyThreshold: _poorAccuracyThreshold >= 100 ? 9999 : _poorAccuracyThreshold,
+        rawSpikeSpeedMs: _rawSpikeSpeedMs,
+        useAdaptiveIir: _useAdaptiveIir,
+        iirAlphaSteady: _iirAlphaSteady,
+        iirAlphaPaceChange: _iirAlphaPaceChange,
+        iirAlphaStop: _iirAlphaStop,
+        speedChangeThresholdMs: _speedChangeThresholdMs,
       );
 
   @override
@@ -108,459 +130,428 @@ class _ConfigEditSheetState extends State<ConfigEditSheet> {
       initialChildSize: 0.92,
       minChildSize: 0.5,
       maxChildSize: 0.95,
-      builder: (context, scrollController) {
-        return Column(
-          children: [
-            _SheetHandle(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-              child: Row(
-                children: [
-                  Text(
-                    widget.title,
-                    style: const TextStyle(
-                        fontSize: 17, fontWeight: FontWeight.w600),
-                  ),
-                  const Spacer(),
-                  FilledButton(
-                    onPressed: () {
-                      widget.onSave(_buildParams());
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Uygula'),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView(
-                controller: scrollController,
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-                children: [
-                  _SectionTitle('Genel'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Config adı',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text('Renk',
-                      style: TextStyle(
-                          fontSize: 13, color: Colors.grey.shade600)),
-                  const SizedBox(height: 8),
-                  _ColorPicker(
-                    selected: _color,
-                    onChanged: (c) => setState(() => _color = c),
-                  ),
-                  const SizedBox(height: 20),
-
-                  _SectionTitle('GPS Filtre Eşikleri'),
-                  _SliderRow(
-                    label: 'Doğruluk eşiği',
-                    unit: 'm',
-                    value: _accuracyThreshold,
-                    min: 1,
-                    max: 200,
-                    divisions: 199,
-                    maxLabel: '∞ (kapalı)',
-                    onChanged: (v) =>
-                        setState(() => _accuracyThreshold = v),
-                    displayValue: _accuracyThreshold >= 200
-                        ? '∞'
-                        : '${_accuracyThreshold.round()} m',
-                    hint:
-                        'GPS cihazının raporladığı yatay hata. Düşük = daha katı.',
-                  ),
-                  _SliderRow(
-                    label: 'Maks. hız',
-                    unit: 'km/h',
-                    value: _maxSpeedKmh,
-                    min: 5,
-                    max: 200,
-                    divisions: 195,
-                    maxLabel: '∞ (kapalı)',
-                    onChanged: (v) => setState(() => _maxSpeedKmh = v),
-                    displayValue: _maxSpeedKmh >= 200
-                        ? '∞'
-                        : '${_maxSpeedKmh.round()} km/h',
-                    hint: 'Anlık hız bu değeri geçen noktalar reddedilir.',
-                  ),
-                  _SliderRow(
-                    label: 'Maks. örtülü hız',
-                    unit: 'km/h',
-                    value: _maxImpliedSpeedKmh,
-                    min: 10,
-                    max: 300,
-                    divisions: 290,
-                    maxLabel: '∞ (kapalı)',
-                    onChanged: (v) =>
-                        setState(() => _maxImpliedSpeedKmh = v),
-                    displayValue: _maxImpliedSpeedKmh >= 300
-                        ? '∞'
-                        : '${_maxImpliedSpeedKmh.round()} km/h',
-                    hint:
-                        'İki ardışık nokta arasındaki mesafe/zaman oranı. GPS sıçramalarını yakalar.',
-                  ),
-                  _SliderRow(
-                    label: 'Dur. hız eşiği',
-                    unit: 'm/s',
-                    value: _stationarySpeedThreshold,
-                    min: 0,
-                    max: 3,
-                    divisions: 30,
-                    onChanged: (v) =>
-                        setState(() => _stationarySpeedThreshold = v),
-                    displayValue:
-                        '${_stationarySpeedThreshold.toStringAsFixed(1)} m/s',
-                    hint:
-                        'Bu hızın altındaki noktalar "duruyorsun" sayılır, zayıf GPS ile birleşince reddedilir.',
-                  ),
-                  _SliderRow(
-                    label: 'Zayıf doğruluk eşiği',
-                    unit: 'm',
-                    value: _poorAccuracyThreshold,
-                    min: 1,
-                    max: 100,
-                    divisions: 99,
-                    maxLabel: '∞ (kapalı)',
-                    onChanged: (v) =>
-                        setState(() => _poorAccuracyThreshold = v),
-                    displayValue: _poorAccuracyThreshold >= 100
-                        ? '∞'
-                        : '${_poorAccuracyThreshold.round()} m',
-                    hint:
-                        '"Duruyorsun" kontrolü için kullanılır: bu değerin üstündeki doğruluk = zayıf GPS.',
-                  ),
-
-                  const SizedBox(height: 20),
-                  _SectionTitle('Mesafe Eşikleri'),
-                  _SliderRow(
-                    label: 'Isınma süresi',
-                    unit: 'nokta',
-                    value: _warmUpCount,
-                    min: 0,
-                    max: 30,
-                    divisions: 30,
-                    onChanged: (v) => setState(() => _warmUpCount = v),
-                    displayValue: '${_warmUpCount.round()} nokta',
-                    hint:
-                        'İlk N noktada filtreler gevşetilir (GPS henüz sabitlenmemiştir).',
-                  ),
-                  _SliderRow(
-                    label: 'Min. mesafe (ısınma)',
-                    unit: 'm',
-                    value: _warmUpMinDistance,
-                    min: 0,
-                    max: 20,
-                    divisions: 40,
-                    onChanged: (v) =>
-                        setState(() => _warmUpMinDistance = v),
-                    displayValue:
-                        '${_warmUpMinDistance.toStringAsFixed(1)} m',
-                    hint:
-                        'Isınma evresinde iki nokta arasındaki minimum mesafe.',
-                  ),
-                  _SliderRow(
-                    label: 'Min. mesafe (normal)',
-                    unit: 'm',
-                    value: _postWarmUpMinDistance,
-                    min: 0,
-                    max: 30,
-                    divisions: 60,
-                    onChanged: (v) =>
-                        setState(() => _postWarmUpMinDistance = v),
-                    displayValue:
-                        '${_postWarmUpMinDistance.toStringAsFixed(1)} m',
-                    hint:
-                        'Isınma sonrasında iki nokta arasındaki minimum mesafe.',
-                  ),
-
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      _SectionTitle('Kalman Filtresi'),
-                      const Spacer(),
-                      Switch(
-                        value: _useKalman,
-                        onChanged: (v) =>
-                            setState(() => _useKalman = v),
-                      ),
-                    ],
-                  ),
-                  if (_useKalman) ...[
-                    const SizedBox(height: 4),
-                    _DiscreteRow(
-                      label: 'Process Noise (Q)',
-                      options: _kalmanQOptions,
-                      selected: _kalmanQ,
-                      onChanged: (v) => setState(() => _kalmanQ = v),
-                      hint:
-                          'Küçük Q = modele daha fazla güven → daha düzgün ama yavaş tepki.\nBüyük Q = ölçüme daha fazla güven → hızlı tepki ama daha az düzgün.',
-                    ),
-                    _DiscreteRow(
-                      label: 'Measurement Noise (R)',
-                      options: _kalmanROptions,
-                      selected: _kalmanR,
-                      onChanged: (v) => setState(() => _kalmanR = v),
-                      hint:
-                          'Büyük R = GPS ölçümüne az güven → daha fazla düzleştirme.',
-                    ),
-                  ] else
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4, bottom: 8),
-                      child: Text(
-                        'Kalman kapalıyken GPS noktaları ham koordinatlarıyla kullanılır.',
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade500),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _SheetHandle extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 4),
-      child: Center(
-        child: Container(
-          width: 36,
-          height: 4,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade300,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String text;
-  const _SectionTitle(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: Theme.of(context).colorScheme.primary,
-      ),
-    );
-  }
-}
-
-class _ColorPicker extends StatelessWidget {
-  final Color selected;
-  final ValueChanged<Color> onChanged;
-
-  const _ColorPicker({required this.selected, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      children: GpsFilterParams.selectableColors.map((color) {
-        final isSelected = color.value == selected.value;
-        return GestureDetector(
-          onTap: () => onChanged(color),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected ? Colors.black87 : Colors.transparent,
-                width: 2.5,
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: color.withValues(alpha: 0.5),
-                        blurRadius: 6,
-                      )
-                    ]
-                  : null,
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _SliderRow extends StatelessWidget {
-  final String label;
-  final String unit;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final String? maxLabel;
-  final ValueChanged<double> onChanged;
-  final String displayValue;
-  final String hint;
-
-  const _SliderRow({
-    required this.label,
-    required this.unit,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    this.maxLabel,
-    required this.onChanged,
-    required this.displayValue,
-    required this.hint,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (context, scroll) => Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(label,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w500)),
-              ),
-              Text(
-                displayValue,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.primary,
+          const SheetHandle(),
+          _SheetAppBar(
+            title: widget.title,
+            onApply: () {
+              widget.onSave(_buildParams());
+              Navigator.pop(context);
+            },
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView(
+              controller: scroll,
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              children: [
+                _GeneralSection(
+                  nameCtrl: _nameCtrl,
+                  color: _color,
+                  onColorChanged: (c) => setState(() => _color = c),
                 ),
-              ),
-            ],
-          ),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 3,
-              thumbShape:
-                  const RoundSliderThumbShape(enabledThumbRadius: 8),
-              overlayShape:
-                  const RoundSliderOverlayShape(overlayRadius: 16),
+                _GpsThresholdsSection(
+                  accuracyThreshold: _accuracyThreshold,
+                  maxSpeedKmh: _maxSpeedKmh,
+                  maxImpliedSpeedKmh: _maxImpliedSpeedKmh,
+                  stationarySpeedThreshold: _stationarySpeedThreshold,
+                  poorAccuracyThreshold: _poorAccuracyThreshold,
+                  onAccuracyChanged: (v) =>
+                      setState(() => _accuracyThreshold = v),
+                  onMaxSpeedChanged: (v) =>
+                      setState(() => _maxSpeedKmh = v),
+                  onMaxImpliedSpeedChanged: (v) =>
+                      setState(() => _maxImpliedSpeedKmh = v),
+                  onStationaryChanged: (v) =>
+                      setState(() => _stationarySpeedThreshold = v),
+                  onPoorAccuracyChanged: (v) =>
+                      setState(() => _poorAccuracyThreshold = v),
+                ),
+                _DistanceSection(
+                  warmUpCount: _warmUpCount,
+                  warmUpMinDistance: _warmUpMinDistance,
+                  postWarmUpMinDistance: _postWarmUpMinDistance,
+                  onWarmUpCountChanged: (v) =>
+                      setState(() => _warmUpCount = v),
+                  onWarmUpDistChanged: (v) =>
+                      setState(() => _warmUpMinDistance = v),
+                  onPostWarmUpDistChanged: (v) =>
+                      setState(() => _postWarmUpMinDistance = v),
+                ),
+                _SpikeGuardSection(
+                  rawSpikeSpeedMs: _rawSpikeSpeedMs,
+                  onChanged: (v) => setState(() => _rawSpikeSpeedMs = v),
+                ),
+                _IirSection(
+                  useAdaptiveIir: _useAdaptiveIir,
+                  iirAlphaSteady: _iirAlphaSteady,
+                  iirAlphaPaceChange: _iirAlphaPaceChange,
+                  iirAlphaStop: _iirAlphaStop,
+                  speedChangeThresholdMs: _speedChangeThresholdMs,
+                  onToggle: (v) => setState(() {
+                    _useAdaptiveIir = v;
+                    if (v) _useKalman = false;
+                  }),
+                  onSteadyChanged: (v) =>
+                      setState(() => _iirAlphaSteady = v),
+                  onPaceChangeChanged: (v) =>
+                      setState(() => _iirAlphaPaceChange = v),
+                  onStopChanged: (v) => setState(() => _iirAlphaStop = v),
+                  onSpeedThresholdChanged: (v) =>
+                      setState(() => _speedChangeThresholdMs = v),
+                ),
+                _KalmanSection(
+                  useKalman: _useKalman,
+                  iirActive: _useAdaptiveIir,
+                  kalmanQ: _kalmanQ,
+                  kalmanR: _kalmanR,
+                  kalmanQOptions: _kalmanQOptions,
+                  kalmanROptions: _kalmanROptions,
+                  onToggle: (v) => setState(() => _useKalman = v),
+                  onQChanged: (v) => setState(() => _kalmanQ = v),
+                  onRChanged: (v) => setState(() => _kalmanR = v),
+                ),
+              ],
             ),
-            child: Slider(
-              value: value,
-              min: min,
-              max: max,
-              divisions: divisions,
-              onChanged: onChanged,
-            ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('$min $unit',
-                  style: TextStyle(
-                      fontSize: 10, color: Colors.grey.shade400)),
-              Text(maxLabel ?? '$max $unit',
-                  style: TextStyle(
-                      fontSize: 10, color: Colors.grey.shade400)),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Text(hint,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-          const SizedBox(height: 10),
         ],
       ),
     );
   }
 }
 
-class _DiscreteRow extends StatelessWidget {
-  final String label;
-  final List<double> options;
-  final double selected;
-  final ValueChanged<double> onChanged;
-  final String hint;
+// ─── Stateless bölüm widgetları ──────────────────────────────────────────────
 
-  const _DiscreteRow({
-    required this.label,
-    required this.options,
-    required this.selected,
-    required this.onChanged,
-    required this.hint,
-  });
-
-  String _fmt(double v) {
-    if (v < 0.001) return v.toStringAsExponential(0);
-    return v.toString();
-  }
+class _SheetAppBar extends StatelessWidget {
+  final String title;
+  final VoidCallback onApply;
+  const _SheetAppBar({required this.title, required this.onApply});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+      child: Row(
         children: [
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          Row(
-            children: options.map((opt) {
-              final isSelected = (opt - selected).abs() < opt * 0.01;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => onChanged(opt),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      _fmt(opt),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected
-                            ? Colors.white
-                            : Colors.grey.shade700,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 6),
-          Text(hint,
+          Text(title,
               style:
-                  TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                  const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+          const Spacer(),
+          FilledButton(onPressed: onApply, child: const Text('Uygula')),
         ],
       ),
     );
+  }
+}
+
+class _GeneralSection extends StatelessWidget {
+  final TextEditingController nameCtrl;
+  final Color color;
+  final ValueChanged<Color> onColorChanged;
+  const _GeneralSection(
+      {required this.nameCtrl,
+      required this.color,
+      required this.onColorChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SectionTitle('Genel'),
+      const SizedBox(height: 8),
+      TextField(
+        controller: nameCtrl,
+        decoration: const InputDecoration(
+            labelText: 'Config adı',
+            border: OutlineInputBorder(),
+            isDense: true),
+      ),
+      const SizedBox(height: 14),
+      Text('Renk',
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+      const SizedBox(height: 8),
+      ColorPicker(selected: color, onChanged: onColorChanged),
+      const SizedBox(height: 20),
+    ]);
+  }
+}
+
+class _GpsThresholdsSection extends StatelessWidget {
+  final double accuracyThreshold;
+  final double maxSpeedKmh;
+  final double maxImpliedSpeedKmh;
+  final double stationarySpeedThreshold;
+  final double poorAccuracyThreshold;
+  final ValueChanged<double> onAccuracyChanged;
+  final ValueChanged<double> onMaxSpeedChanged;
+  final ValueChanged<double> onMaxImpliedSpeedChanged;
+  final ValueChanged<double> onStationaryChanged;
+  final ValueChanged<double> onPoorAccuracyChanged;
+
+  const _GpsThresholdsSection({
+    required this.accuracyThreshold,
+    required this.maxSpeedKmh,
+    required this.maxImpliedSpeedKmh,
+    required this.stationarySpeedThreshold,
+    required this.poorAccuracyThreshold,
+    required this.onAccuracyChanged,
+    required this.onMaxSpeedChanged,
+    required this.onMaxImpliedSpeedChanged,
+    required this.onStationaryChanged,
+    required this.onPoorAccuracyChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SectionTitle('GPS Filtre Eşikleri'),
+      SliderRow(
+        label: 'Doğruluk eşiği', unit: 'm',
+        value: accuracyThreshold, min: 1, max: 200, divisions: 199,
+        maxLabel: '∞ (kapalı)', onChanged: onAccuracyChanged,
+        displayValue: accuracyThreshold >= 200 ? '∞' : '${accuracyThreshold.round()} m',
+        hint: 'GPS cihazının raporladığı yatay hata. Düşük = daha katı.',
+      ),
+      SliderRow(
+        label: 'Maks. hız', unit: 'km/h',
+        value: maxSpeedKmh, min: 5, max: 200, divisions: 195,
+        maxLabel: '∞ (kapalı)', onChanged: onMaxSpeedChanged,
+        displayValue: maxSpeedKmh >= 200 ? '∞' : '${maxSpeedKmh.round()} km/h',
+        hint: 'Anlık hız bu değeri geçen noktalar reddedilir.',
+      ),
+      SliderRow(
+        label: 'Maks. örtülü hız', unit: 'km/h',
+        value: maxImpliedSpeedKmh, min: 10, max: 300, divisions: 290,
+        maxLabel: '∞ (kapalı)', onChanged: onMaxImpliedSpeedChanged,
+        displayValue: maxImpliedSpeedKmh >= 300 ? '∞' : '${maxImpliedSpeedKmh.round()} km/h',
+        hint: 'İki ardışık nokta arasındaki mesafe/zaman oranı. GPS sıçramalarını yakalar.',
+      ),
+      SliderRow(
+        label: 'Dur. hız eşiği', unit: 'm/s',
+        value: stationarySpeedThreshold, min: 0, max: 3, divisions: 30,
+        onChanged: onStationaryChanged,
+        displayValue: '${stationarySpeedThreshold.toStringAsFixed(1)} m/s',
+        hint: 'Bu hızın altındaki noktalar "duruyorsun" sayılır.',
+      ),
+      SliderRow(
+        label: 'Zayıf doğruluk eşiği', unit: 'm',
+        value: poorAccuracyThreshold, min: 1, max: 100, divisions: 99,
+        maxLabel: '∞ (kapalı)', onChanged: onPoorAccuracyChanged,
+        displayValue: poorAccuracyThreshold >= 100 ? '∞' : '${poorAccuracyThreshold.round()} m',
+        hint: '"Duruyorsun" kontrolü için kullanılır: bu değerin üstü = zayıf GPS.',
+      ),
+      const SizedBox(height: 20),
+    ]);
+  }
+}
+
+class _DistanceSection extends StatelessWidget {
+  final double warmUpCount;
+  final double warmUpMinDistance;
+  final double postWarmUpMinDistance;
+  final ValueChanged<double> onWarmUpCountChanged;
+  final ValueChanged<double> onWarmUpDistChanged;
+  final ValueChanged<double> onPostWarmUpDistChanged;
+
+  const _DistanceSection({
+    required this.warmUpCount,
+    required this.warmUpMinDistance,
+    required this.postWarmUpMinDistance,
+    required this.onWarmUpCountChanged,
+    required this.onWarmUpDistChanged,
+    required this.onPostWarmUpDistChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SectionTitle('Mesafe Eşikleri'),
+      SliderRow(
+        label: 'Isınma süresi', unit: 'nokta',
+        value: warmUpCount, min: 0, max: 30, divisions: 30,
+        onChanged: onWarmUpCountChanged,
+        displayValue: '${warmUpCount.round()} nokta',
+        hint: 'İlk N noktada filtreler gevşetilir (GPS henüz sabitlenmemiştir).',
+      ),
+      SliderRow(
+        label: 'Min. mesafe (ısınma)', unit: 'm',
+        value: warmUpMinDistance, min: 0, max: 20, divisions: 40,
+        onChanged: onWarmUpDistChanged,
+        displayValue: '${warmUpMinDistance.toStringAsFixed(1)} m',
+        hint: 'Isınma evresinde iki nokta arasındaki minimum mesafe.',
+      ),
+      SliderRow(
+        label: 'Min. mesafe (normal)', unit: 'm',
+        value: postWarmUpMinDistance, min: 0, max: 30, divisions: 60,
+        onChanged: onPostWarmUpDistChanged,
+        displayValue: '${postWarmUpMinDistance.toStringAsFixed(1)} m',
+        hint: 'Isınma sonrasında iki nokta arasındaki minimum mesafe.',
+      ),
+      const SizedBox(height: 20),
+    ]);
+  }
+}
+
+class _SpikeGuardSection extends StatelessWidget {
+  final double rawSpikeSpeedMs;
+  final ValueChanged<double> onChanged;
+  const _SpikeGuardSection(
+      {required this.rawSpikeSpeedMs, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SectionTitle('Spike Guard'),
+      SliderRow(
+        label: 'Ham GPS hız eşiği', unit: 'm/s',
+        value: rawSpikeSpeedMs, min: 0, max: 20, divisions: 40,
+        maxLabel: '∞ (kapalı)', onChanged: onChanged,
+        displayValue:
+            rawSpikeSpeedMs == 0 ? 'Kapalı' : '${rawSpikeSpeedMs.toStringAsFixed(1)} m/s',
+        hint:
+            'Kalman\'dan önce: iki ham GPS noktası arasındaki hız bu eşiği geçerse spike olarak reddedilir.',
+      ),
+      const SizedBox(height: 20),
+    ]);
+  }
+}
+
+class _IirSection extends StatelessWidget {
+  final bool useAdaptiveIir;
+  final double iirAlphaSteady;
+  final double iirAlphaPaceChange;
+  final double iirAlphaStop;
+  final double speedChangeThresholdMs;
+  final ValueChanged<bool> onToggle;
+  final ValueChanged<double> onSteadyChanged;
+  final ValueChanged<double> onPaceChangeChanged;
+  final ValueChanged<double> onStopChanged;
+  final ValueChanged<double> onSpeedThresholdChanged;
+
+  const _IirSection({
+    required this.useAdaptiveIir,
+    required this.iirAlphaSteady,
+    required this.iirAlphaPaceChange,
+    required this.iirAlphaStop,
+    required this.speedChangeThresholdMs,
+    required this.onToggle,
+    required this.onSteadyChanged,
+    required this.onPaceChangeChanged,
+    required this.onStopChanged,
+    required this.onSpeedThresholdChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const SectionTitle('IIR Adaptif Filtre'),
+        const Spacer(),
+        Switch(value: useAdaptiveIir, onChanged: onToggle),
+      ]),
+      if (useAdaptiveIir) ...[
+        const SizedBox(height: 4),
+        SliderRow(
+          label: 'Alpha (sabit koşu)', unit: '',
+          value: iirAlphaSteady, min: 0.0, max: 1.0, divisions: 20,
+          onChanged: onSteadyChanged,
+          displayValue: iirAlphaSteady.toStringAsFixed(2),
+          hint: 'Sabit hızda EMA alpha. Düşük = güçlü yumuşatma. 0.3 önerilir.',
+        ),
+        SliderRow(
+          label: 'Alpha (hız değişimi)', unit: '',
+          value: iirAlphaPaceChange, min: 0.0, max: 1.0, divisions: 20,
+          onChanged: onPaceChangeChanged,
+          displayValue: iirAlphaPaceChange.toStringAsFixed(2),
+          hint: 'Pace değişiminde EMA alpha. Yüksek = hızlı tepki. 0.7 önerilir.',
+        ),
+        SliderRow(
+          label: 'Alpha (durma)', unit: '',
+          value: iirAlphaStop, min: 0.0, max: 0.5, divisions: 10,
+          onChanged: onStopChanged,
+          displayValue: iirAlphaStop == 0.0 ? 'Dondur' : iirAlphaStop.toStringAsFixed(2),
+          hint: '0.0 = durunca pozisyonu dondur. >0 = yavaş sürükle.',
+        ),
+        SliderRow(
+          label: 'Hız değişim eşiği', unit: 'm/s',
+          value: speedChangeThresholdMs, min: 0.1, max: 3.0, divisions: 29,
+          onChanged: onSpeedThresholdChanged,
+          displayValue: '${speedChangeThresholdMs.toStringAsFixed(1)} m/s',
+          hint: 'Bu kadar anlık hız farkı PACE_CHANGE durumunu tetikler. 0.8 m/s önerilir.',
+        ),
+      ] else
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 8),
+          child: Text('IIR kapalıyken Kalman veya ham GPS kullanılır.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+        ),
+      const SizedBox(height: 20),
+    ]);
+  }
+}
+
+class _KalmanSection extends StatelessWidget {
+  final bool useKalman;
+  final bool iirActive;
+  final double kalmanQ;
+  final double kalmanR;
+  final List<double> kalmanQOptions;
+  final List<double> kalmanROptions;
+  final ValueChanged<bool> onToggle;
+  final ValueChanged<double> onQChanged;
+  final ValueChanged<double> onRChanged;
+
+  const _KalmanSection({
+    required this.useKalman,
+    required this.iirActive,
+    required this.kalmanQ,
+    required this.kalmanR,
+    required this.kalmanQOptions,
+    required this.kalmanROptions,
+    required this.onToggle,
+    required this.onQChanged,
+    required this.onRChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const SectionTitle('Kalman Filtresi'),
+        const Spacer(),
+        Switch(
+          value: useKalman && !iirActive,
+          onChanged: iirActive ? null : onToggle,
+        ),
+      ]),
+      if (iirActive)
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 8),
+          child: Text('IIR Adaptif açıkken Kalman devre dışı.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+        )
+      else if (useKalman) ...[
+        const SizedBox(height: 4),
+        DiscreteRow(
+          label: 'Process Noise (Q)',
+          options: kalmanQOptions,
+          selected: kalmanQ,
+          onChanged: onQChanged,
+          hint: 'Küçük Q = modele daha fazla güven → daha düzgün ama yavaş tepki.',
+        ),
+        DiscreteRow(
+          label: 'Measurement Noise (R)',
+          options: kalmanROptions,
+          selected: kalmanR,
+          onChanged: onRChanged,
+          hint: 'Büyük R = GPS ölçümüne az güven → daha fazla düzleştirme.',
+        ),
+      ] else
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 8),
+          child: Text('Kalman kapalıyken GPS noktaları ham koordinatlarıyla kullanılır.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+        ),
+    ]);
   }
 }

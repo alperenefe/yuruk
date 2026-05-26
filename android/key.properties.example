@@ -1,0 +1,7 @@
+# Kopyala: android/key.properties (git'e ekleme)
+# Yerel ve CI ayni upload-keystore.jks kullanmali — veri korunur.
+
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=upload-keystore.jks

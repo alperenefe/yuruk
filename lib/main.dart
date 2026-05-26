@@ -1,23 +1,59 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'core/di/service_locator.dart';
 import 'presentation/screens/run_screen.dart';
 import 'presentation/screens/history_screen.dart';
 import 'presentation/screens/workouts_screen.dart';
 import 'presentation/screens/comparison_screen.dart';
 import 'infrastructure/background/foreground_task_handler.dart';
+import 'services/app_distribution_update.dart';
+import 'presentation/widgets/app_update_card.dart';
 
-void main() async {
+const _sentryDsn = String.fromEnvironment('SENTRY_DSN', defaultValue: '');
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await ForegroundTaskManager.initialize();
-  setupServiceLocator();
-  runApp(const ProviderScope(child: MyApp()));
+
+  Future<void> bootstrap() async {
+    await ForegroundTaskManager.initialize();
+    setupServiceLocator();
+    runApp(const ProviderScope(child: MyApp()));
+  }
+
+  if (_sentryDsn.isNotEmpty) {
+    await SentryFlutter.init(
+      (options) {
+        options.dsn = _sentryDsn;
+        options.environment = kReleaseMode ? 'production' : 'development';
+        options.tracesSampleRate = kReleaseMode ? 0.2 : 1.0;
+        options.attachStacktrace = true;
+      },
+      appRunner: bootstrap,
+    );
+  } else {
+    await bootstrap();
+  }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppDistributionUpdate.checkFromApp();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

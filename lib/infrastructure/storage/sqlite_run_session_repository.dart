@@ -26,21 +26,26 @@ class SqliteRunSessionRepository implements RunSessionRepository {
   }
 
   static List<TrackPoint> _decodeTrackPoints(List<dynamic> list) {
-    return list
-        .map(
-          (tp) => TrackPoint(
-            latitude: (tp['latitude'] as num).toDouble(),
-            longitude: (tp['longitude'] as num).toDouble(),
-            altitude: (tp['altitude'] as num).toDouble(),
-            accuracy: (tp['accuracy'] as num).toDouble(),
-            speed: (tp['speed'] as num).toDouble(),
-            bearing: tp['bearing'] == null
-                ? null
-                : (tp['bearing'] as num).toDouble(),
-            timestamp: DateTime.fromMillisecondsSinceEpoch(tp['timestamp'] as int),
-          ),
-        )
-        .toList();
+    final result = <TrackPoint>[];
+    for (final tp in list) {
+      try {
+        result.add(TrackPoint(
+          latitude: (tp['latitude'] as num).toDouble(),
+          longitude: (tp['longitude'] as num).toDouble(),
+          altitude: (tp['altitude'] as num? ?? 0).toDouble(),
+          accuracy: (tp['accuracy'] as num? ?? 0).toDouble(),
+          speed: (tp['speed'] as num? ?? 0).toDouble(),
+          bearing: tp['bearing'] == null
+              ? null
+              : (tp['bearing'] as num).toDouble(),
+          timestamp: DateTime.fromMillisecondsSinceEpoch(
+              (tp['timestamp'] as num).toInt()),
+        ));
+      } catch (_) {
+        // Bozuk nokta atla — tüm listeyi çökertme
+      }
+    }
+    return result;
   }
 
   static String _encodeFilterExports(List<NamedTrackSegment> segments) {
@@ -56,14 +61,18 @@ class SqliteRunSessionRepository implements RunSessionRepository {
   }
 
   static List<NamedTrackSegment> _decodeFilterExports(List<dynamic> list) {
-    return list
-        .map(
-          (e) => NamedTrackSegment(
-            name: e['name'] as String,
-            points: _decodeTrackPoints(e['points'] as List<dynamic>),
-          ),
-        )
-        .toList();
+    final result = <NamedTrackSegment>[];
+    for (final e in list) {
+      try {
+        result.add(NamedTrackSegment(
+          name: e['name'] as String? ?? 'Segment',
+          points: _decodeTrackPoints(e['points'] as List<dynamic>? ?? []),
+        ));
+      } catch (_) {
+        // Bozuk segment atla
+      }
+    }
+    return result;
   }
 
   @override
@@ -160,6 +169,7 @@ class SqliteRunSessionRepository implements RunSessionRepository {
           : null,
       status: RunStatus.values.firstWhere(
         (e) => e.name == map['status'],
+        orElse: () => RunStatus.stopped,
       ),
       trackPoints: trackPoints,
       rawTrackPoints: rawTrackPoints,

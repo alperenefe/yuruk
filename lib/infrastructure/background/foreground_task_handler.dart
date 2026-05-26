@@ -71,17 +71,4 @@ class ForegroundTaskManager {
     } catch (_) {}
   }
 
-  static Future<ServiceRequestResult> stopService() async {
-    return await FlutterForegroundTask.stopService();
-  }
-
-  static Future<void> updateNotification({
-    required String title,
-    required String text,
-  }) async {
-    await FlutterForegroundTask.updateService(
-      notificationTitle: title,
-      notificationText: text,
-    );
-  }
 }

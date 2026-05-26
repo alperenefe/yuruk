@@ -16,6 +16,7 @@ import '../../domain/services/announcement_service.dart';
 import '../../infrastructure/tts/flutter_tts_service.dart';
 import '../../infrastructure/background/foreground_task_handler.dart';
 import '../../infrastructure/gps/simulated_location_repository.dart';
+import '../../core/crash/crash_reporting.dart';
 import '../../core/filters/gps_filter_pipeline.dart';
 import '../../core/filters/live_algorithm_comparator.dart';
 
@@ -42,6 +43,7 @@ class RunSessionState {
     bool? isRunning,
     bool? isLoading,
     String? error,
+    bool clearError = false,
     List<FilteredTrackResult>? algorithmResults,
   }) {
     return RunSessionState(
@@ -49,7 +51,7 @@ class RunSessionState {
       intervalSession: intervalSession ?? this.intervalSession,
       isRunning: isRunning ?? this.isRunning,
       isLoading: isLoading ?? this.isLoading,
-      error: error,
+      error: clearError ? null : (error ?? this.error),
       algorithmResults: algorithmResults ?? this.algorithmResults,
     );
   }
@@ -69,6 +71,10 @@ class RunSessionController extends StateNotifier<RunSessionState> {
 
   final LiveAlgorithmComparator _comparator = LiveAlgorithmComparator();
 
+  /// startRun tamamlanmadan stopRun çağrılırsa eski start iptal edilir.
+  int _runGeneration = 0;
+  bool _isStopping = false;
+
   RunSessionController(
     this._locationRepository,
     this._runSessionRepository,
@@ -78,34 +84,71 @@ class RunSessionController extends StateNotifier<RunSessionState> {
     _ttsService.initialize();
   }
 
+  Future<void> _teardownTracking() async {
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
+    await _locationSubscription?.cancel();
+    _locationSubscription = null;
+    try {
+      await _locationRepository.stopTracking();
+    } catch (e, st) {
+      CrashReporting.captureException(e, stackTrace: st, hint: 'stop_tracking');
+    }
+    final isSimulated = _locationRepository is SimulatedLocationRepository;
+    if (!isSimulated) {
+      await ForegroundTaskManager.stopServiceSafe();
+    }
+  }
+
   Future<void> startRun({WorkoutPlan? workoutPlan}) async {
-    state = state.copyWith(isLoading: true, error: null);
-    
+    if (state.isLoading || _isStopping) return;
+
+    final generation = ++_runGeneration;
+
+    await _teardownTracking();
+
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      algorithmResults: const [],
+      isRunning: false,
+    );
+
     try {
       final session = await _startRunSession.execute();
-      
+
+      if (generation != _runGeneration) {
+        await _locationRepository.stopTracking();
+        return;
+      }
+
       state = state.copyWith(
         currentSession: session,
         isRunning: true,
         isLoading: false,
-        error: null,
+        clearError: true,
+        algorithmResults: const [],
+        intervalSession: null,
       );
 
-      // Start interval session if workout plan provided
       if (workoutPlan != null) {
         final intervalSession = IntervalSession(workoutPlan: workoutPlan);
         final startedInterval = _intervalEngine.start(intervalSession);
         state = state.copyWith(intervalSession: startedInterval);
-        
-        // Announce first step
+
         if (startedInterval.currentStep != null) {
           _ttsService.speak(_announcementService.getIntervalStepStartAnnouncement(
             startedInterval.currentStep!,
           ));
         }
       } else {
-        // Regular run without intervals
         _ttsService.speak(_announcementService.getStartAnnouncement());
+      }
+
+      if (generation != _runGeneration) {
+        await _teardownTracking();
+        state = state.copyWith(isRunning: false, isLoading: false);
+        return;
       }
 
       _comparator.reset();
@@ -121,12 +164,12 @@ class RunSessionController extends StateNotifier<RunSessionState> {
 
       _startElapsedTimer();
 
+      final listenGeneration = generation;
       _locationSubscription = _locationRepository.getLocationStream().listen(
         (trackPoint) {
-          if (!state.isRunning) return;
+          if (listenGeneration != _runGeneration || !state.isRunning) return;
           _comparator.process(trackPoint);
           final results = _comparator.results;
-          state = state.copyWith(algorithmResults: results);
 
           if (state.currentSession != null) {
             final primary = _comparator.primaryResult;
@@ -138,31 +181,47 @@ class RunSessionController extends StateNotifier<RunSessionState> {
               totalDistance: primary.totalDistance,
               elapsedTime: state.currentSession!.elapsedTime,
             );
-            state = state.copyWith(currentSession: updatedSession);
+            state = state.copyWith(currentSession: updatedSession, algorithmResults: results);
 
             if (state.intervalSession != null) {
               _updateIntervalSession(updatedSession);
             }
           }
         },
-        onError: (error) {
+        onError: (error, stackTrace) {
+          if (listenGeneration != _runGeneration) return;
+          CrashReporting.captureException(error, stackTrace: stackTrace, hint: 'gps_stream');
           state = state.copyWith(error: error.toString());
         },
       );
     } on LocationServiceDisabledException catch (e) {
-      state = state.copyWith(error: e.message, isLoading: false);
+      if (generation == _runGeneration) {
+        state = state.copyWith(error: e.message, isLoading: false, isRunning: false);
+      }
     } on LocationPermissionDeniedException catch (e) {
-      state = state.copyWith(error: e.message, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(error: 'Bir hata oluştu: ${e.toString()}', isLoading: false);
+      if (generation == _runGeneration) {
+        state = state.copyWith(error: e.message, isLoading: false, isRunning: false);
+      }
+    } catch (e, st) {
+      if (generation == _runGeneration) {
+        CrashReporting.captureException(e, stackTrace: st, hint: 'start_run');
+        state = state.copyWith(
+          error: 'Bir hata oluştu: ${e.toString()}',
+          isLoading: false,
+          isRunning: false,
+        );
+      }
+    } finally {
+      if (generation == _runGeneration && state.isLoading && !state.isRunning) {
+        state = state.copyWith(isLoading: false);
+      }
     }
   }
 
   void _updateIntervalSession(RunSession runSession) {
     final (updatedInterval, events) = _intervalEngine.update(runSession);
     state = state.copyWith(intervalSession: updatedInterval);
-    
-    // Process events
+
     for (final event in events) {
       if (event is IntervalStepCompleted) {
         if (kDebugMode) print('🏁 Interval step ${event.stepIndex} completed');
@@ -205,14 +264,16 @@ class RunSessionController extends StateNotifier<RunSessionState> {
   }
 
   Future<void> stopRun() async {
-    _elapsedTimer?.cancel();
-    _elapsedTimer = null;
+    if (_isStopping) return;
+    _isStopping = true;
+    _runGeneration++;
 
-    await _locationSubscription?.cancel();
-    _locationSubscription = null;
+    state = state.copyWith(isLoading: true);
+
+    await _teardownTracking();
 
     try {
-      if (state.currentSession != null) {
+      if (state.currentSession != null && state.isRunning) {
         final filterExports = state.algorithmResults
             .map(
               (r) => NamedTrackSegment(
@@ -232,23 +293,23 @@ class RunSessionController extends StateNotifier<RunSessionState> {
         state = state.copyWith(
           currentSession: stoppedSession,
           isRunning: false,
-          error: null,
+          clearError: true,
         );
       } else {
-        state = state.copyWith(isRunning: false, error: null);
+        state = state.copyWith(isRunning: false, clearError: true);
       }
-    } catch (e) {
+    } catch (e, st) {
+      CrashReporting.captureException(e, stackTrace: st, hint: 'stop_run');
       state = state.copyWith(isRunning: false, error: e.toString());
     } finally {
-      final isSimulated = _locationRepository is SimulatedLocationRepository;
-      if (!isSimulated) {
-        await ForegroundTaskManager.stopServiceSafe();
-      }
+      _isStopping = false;
+      state = state.copyWith(isLoading: false);
     }
   }
 
   @override
   void dispose() {
+    _runGeneration++;
     _elapsedTimer?.cancel();
     _locationSubscription?.cancel();
     _ttsService.dispose();

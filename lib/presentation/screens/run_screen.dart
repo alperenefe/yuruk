@@ -6,11 +6,15 @@ import '../../domain/entities/run_session.dart';
 import '../../domain/entities/track_point.dart';
 import '../../domain/entities/workout_plan.dart';
 import '../../core/di/service_locator.dart';
+import '../../domain/entities/location_access_status.dart';
 import '../../domain/repositories/location_repository.dart';
 import '../../domain/repositories/workout_repository.dart';
 import '../utils/run_share.dart';
 import '../widgets/run_map_widget.dart';
 import '../widgets/algorithm_legend_widget.dart';
+import '../widgets/run_stats_row.dart';
+import '../widgets/run_control_bar.dart';
+import '../widgets/location_permission_banner.dart';
 
 class RunScreen extends ConsumerStatefulWidget {
   const RunScreen({super.key});
@@ -23,18 +27,32 @@ class _RunScreenState extends ConsumerState<RunScreen> {
   TrackPoint? _initialPosition;
   WorkoutPlan? _selectedPlan;
   final WorkoutRepository _workoutRepository = getIt<WorkoutRepository>();
+  LocationAccessStatus _locationAccess = LocationAccessStatus.denied;
+  bool _locationCheckDone = false;
 
   @override
   void initState() {
     super.initState();
-    _requestPermissionAndFetchPosition();
+    _refreshLocationAccess(requestIfNeeded: true);
   }
 
-  Future<void> _requestPermissionAndFetchPosition() async {
+  Future<void> _refreshLocationAccess({bool requestIfNeeded = false}) async {
     final locationRepo = getIt<LocationRepository>();
 
-    final hasPermission = await locationRepo.requestPermission();
-    if (!hasPermission) return;
+    var status = await locationRepo.getAccessStatus();
+    if (requestIfNeeded &&
+        status == LocationAccessStatus.denied) {
+      await locationRepo.requestPermission();
+      status = await locationRepo.getAccessStatus();
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _locationAccess = status;
+      _locationCheckDone = true;
+    });
+
+    if (status != LocationAccessStatus.granted) return;
 
     try {
       final last = await locationRepo.getLastKnownPosition();
@@ -52,6 +70,13 @@ class _RunScreenState extends ConsumerState<RunScreen> {
     } catch (e) {
       if (kDebugMode) print('⚠️ Could not get accurate position: $e');
     }
+  }
+
+  Future<void> _openLocationSettings() async {
+    final locationRepo = getIt<LocationRepository>();
+    await locationRepo.openAppSettings();
+    if (!mounted) return;
+    await _refreshLocationAccess(requestIfNeeded: false);
   }
 
   @override
@@ -86,6 +111,13 @@ class _RunScreenState extends ConsumerState<RunScreen> {
       ),
       body: Column(
         children: [
+          if (_locationCheckDone &&
+              _locationAccess != LocationAccessStatus.granted)
+            LocationPermissionBanner(
+              status: _locationAccess,
+              onRetry: () => _refreshLocationAccess(requestIfNeeded: true),
+              onOpenSettings: _openLocationSettings,
+            ),
           Expanded(
             flex: 2,
             child: RunMapWidget(
@@ -121,29 +153,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                         ),
                       ),
                     
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildCompactStat(
-                          'Mesafe',
-                          state.currentSession != null
-                              ? '${(state.currentSession!.totalDistance / 1000).toStringAsFixed(2)} km'
-                              : '0.00 km',
-                        ),
-                        _buildCompactStat(
-                          'Süre',
-                          state.currentSession != null
-                              ? _formatDuration(state.currentSession!.elapsedTime)
-                              : '0:00',
-                        ),
-                        _buildCompactStat(
-                          'Pace',
-                          state.currentSession != null
-                              ? state.currentSession!.averagePaceFormatted
-                              : '--:--',
-                        ),
-                      ],
-                    ),
+                    RunStatsRow(session: state.currentSession),
                     
                     if (!state.isRunning) ...[
                       const SizedBox(height: 12),
@@ -161,41 +171,14 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                     ],
 
                     const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                      onPressed: state.isLoading
-                          ? null
-                          : (state.isRunning
-                              ? () => controller.stopRun()
-                              : () => controller.startRun(workoutPlan: _selectedPlan)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: state.isRunning ? Colors.red : Colors.green,
-                        disabledBackgroundColor: Colors.grey,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: state.isLoading
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Text(
-                              state.isRunning ? 'DURDUR' : 'BAŞLAT',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
+                    RunControlBar(
+                      isRunning: state.isRunning,
+                      isLoading: state.isLoading,
+                      onStart: _locationAccess == LocationAccessStatus.granted
+                          ? () => controller.startRun(workoutPlan: _selectedPlan)
+                          : () => _refreshLocationAccess(requestIfNeeded: true),
+                      onStop: controller.stopRun,
                     ),
-                  ),
                   ],
                 ),
               ),
@@ -204,41 +187,6 @@ class _RunScreenState extends ConsumerState<RunScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildCompactStat(String label, String value) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-    
-    if (hours > 0) {
-      return '${hours}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '${minutes}:${seconds.toString().padLeft(2, '0')}';
   }
 
   Widget _buildWorkoutPlanSelector() {

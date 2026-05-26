@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import '../../domain/entities/track_point.dart';
 import '../../core/filters/gps_filter_pipeline.dart';
 import '../map/osm_map_tiles.dart';
+import '../utils/format_utils.dart';
 
 class RunMapWidget extends StatefulWidget {
   final TrackPoint? currentPosition;
@@ -106,7 +107,7 @@ class _RunMapWidgetState extends State<RunMapWidget> {
                     widget.currentPosition!.latitude,
                     widget.currentPosition!.longitude,
                   )
-                : const LatLng(39.9208, 32.8541),
+                : kDefaultMapCenter,
             initialZoom: 14.0,
             onMapEvent: _onMapEvent,
           ),

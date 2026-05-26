@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../domain/entities/location_access_status.dart';
 import '../../domain/entities/track_point.dart';
 import '../../domain/repositories/location_repository.dart';
 
@@ -8,10 +10,20 @@ class GeolocatorLocationRepository implements LocationRepository {
   StreamSubscription<Position>? _positionSubscription;
   StreamController<TrackPoint>? _trackPointController;
 
-  static const LocationSettings _locationSettings = LocationSettings(
-    accuracy: LocationAccuracy.bestForNavigation,
-    distanceFilter: 0, // Her GPS güncellemesini al (1-2 saniyede bir)
-  );
+  static LocationSettings get _locationSettings {
+    if (Platform.isAndroid) {
+      return AndroidSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 0,
+        intervalDuration: const Duration(seconds: 1),
+        forceLocationManager: false,
+      );
+    }
+    return const LocationSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 0,
+    );
+  }
 
   @override
   Stream<TrackPoint> getLocationStream() {
@@ -69,19 +81,40 @@ class GeolocatorLocationRepository implements LocationRepository {
 
   @override
   Future<bool> requestPermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+    final status = await getAccessStatus();
+    if (status == LocationAccessStatus.granted) return true;
+    if (status == LocationAccessStatus.deniedForever) return false;
+
+    if (status == LocationAccessStatus.denied) {
+      final permission = await Geolocator.requestPermission();
+      return permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always;
     }
-    
-    if (permission == LocationPermission.deniedForever) {
-      return false;
-    }
-    
-    return permission == LocationPermission.whileInUse ||
-           permission == LocationPermission.always;
+
+    return false;
   }
+
+  @override
+  Future<LocationAccessStatus> getAccessStatus() async {
+    if (!await isLocationServiceEnabled()) {
+      return LocationAccessStatus.serviceDisabled;
+    }
+    final permission = await Geolocator.checkPermission();
+    switch (permission) {
+      case LocationPermission.always:
+      case LocationPermission.whileInUse:
+        return LocationAccessStatus.granted;
+      case LocationPermission.deniedForever:
+        return LocationAccessStatus.deniedForever;
+      case LocationPermission.denied:
+        return LocationAccessStatus.denied;
+      case LocationPermission.unableToDetermine:
+        return LocationAccessStatus.denied;
+    }
+  }
+
+  @override
+  Future<bool> openAppSettings() => Geolocator.openAppSettings();
 
   @override
   Future<TrackPoint> getCurrentPosition() async {

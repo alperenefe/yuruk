@@ -19,8 +19,12 @@ class LiveAlgorithmComparator {
   List<FilteredTrackResult> get results =>
       _pipelines.map((p) => p.result).toList();
 
-  FilteredTrackResult get primaryResult =>
-      _pipelines.length > 1 ? _pipelines[1].result : _pipelines[0].result;
+  FilteredTrackResult get primaryResult {
+    final idx = _pipelines.indexWhere(
+      (p) => p.params.name == GpsFilterParams.current.name,
+    );
+    return idx >= 0 ? _pipelines[idx].result : _pipelines[0].result;
+  }
 
   void reset() {
     for (final pipeline in _pipelines) {

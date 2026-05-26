@@ -80,10 +80,14 @@ class RunSession extends Equatable {
   }
 
   String get averagePaceFormatted {
-    if (totalDistance < GpsFilterConfig.minDistanceForPace) return '--:--'; // 50m'den sonra göster
+    if (totalDistance < GpsFilterConfig.minDistanceForPace) return '--:--';
     final pace = averagePaceMinPerKm;
-    final minutes = pace.floor();
-    final seconds = ((pace - minutes) * 60).round();
+    int minutes = pace.floor();
+    int seconds = ((pace - minutes) * 60).round();
+    if (seconds == 60) {
+      seconds = 0;
+      minutes += 1;
+    }
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 

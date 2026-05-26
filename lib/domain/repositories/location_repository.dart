@@ -1,3 +1,4 @@
+import '../entities/location_access_status.dart';
 import '../entities/track_point.dart';
 
 abstract class LocationRepository {
@@ -10,7 +11,11 @@ abstract class LocationRepository {
   Future<bool> isLocationServiceEnabled();
   
   Future<bool> requestPermission();
-  
+
+  Future<LocationAccessStatus> getAccessStatus();
+
+  Future<bool> openAppSettings();
+
   Future<TrackPoint> getCurrentPosition();
   
   Future<TrackPoint?> getLastKnownPosition();

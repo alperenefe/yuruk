@@ -11,14 +11,16 @@ import '../../infrastructure/storage/sqlite_workout_repository.dart';
 final getIt = GetIt.instance;
 
 /// Setup dependency injection
-/// 
-/// [useSimulatedGps]: Force simulated GPS (useful for emulator testing)
-/// - If true: Uses SimulatedLocationRepository (realistic 5km route)
-/// - If false: Uses GeolocatorLocationRepository (real GPS)
-/// - Default: Auto-detect (simulated in debug mode on emulator, real otherwise)
+///
+/// [useSimulatedGps]: Simüle GPS (yalnızca test/emülatör).
+/// Varsayılan: gerçek GPS. Simülasyon için:
+/// `flutter run --dart-define=USE_SIMULATED_GPS=true`
 void setupServiceLocator({bool? useSimulatedGps}) {
-  // Auto-detect: Use simulated GPS in debug mode (for emulator testing)
-  final bool shouldUseSimulatedGps = useSimulatedGps ?? kDebugMode;
+  const simulatedFromEnv = bool.fromEnvironment(
+    'USE_SIMULATED_GPS',
+    defaultValue: false,
+  );
+  final bool shouldUseSimulatedGps = useSimulatedGps ?? simulatedFromEnv;
   
   // GPS Repository
   if (shouldUseSimulatedGps) {

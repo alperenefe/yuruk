@@ -124,6 +124,7 @@ Her algoritma için bağımsız bir instance. Her gelen nokta için:
 | GPX Parsing | xml |
 | Dosya Seçimi | file_picker |
 | Paylaşım | share_plus |
+| Crash raporu | sentry_flutter (opsiyonel, SENTRY_DSN) |
 | Değer Eşitliği | equatable |
 
 ---
@@ -140,6 +141,24 @@ Her algoritma için bağımsız bir instance. Her gelen nokta için:
 ```bash
 flutter pub get
 flutter run
+```
+
+### Uygulama ikonu
+Kaynak: `assets/icon.png`. Android mipmap dosyalarını yenilemek için:
+```bash
+dart run flutter_launcher_icons
+```
+
+### Sentry (isteğe bağlı crash raporu)
+DSN repoya yazılmaz. Release build:
+```bash
+flutter build apk --dart-define=SENTRY_DSN=https://...@sentry.io/...
+```
+
+### Emülatörde simüle GPS
+Gerçek cihazda varsayılan her zaman gerçek GPS'tir. Emülatör/test:
+```bash
+flutter run --dart-define=USE_SIMULATED_GPS=true
 ```
 
 ### Release APK (arm64)

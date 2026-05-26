@@ -3,7 +3,11 @@
 **Repo:** [alperenefe/yuruk](https://github.com/alperenefe/yuruk)  
 **Android paket adı:** `com.alper.yuruk.yuruk`
 
-Müzik Teorisi ile aynı akış: yalnızca **Actions → Run workflow** ile APK derlenir ve Firebase’e gider.
+Müzik Teorisi ile aynı akış: `deploy-remote.ps1` veya `[apk]` push → CI → Firebase.
+
+## Uygulama içi güncelleme
+
+Release APK açılışta güncellemeyi kontrol eder. **Geçmiş** sekmesinde «Güncellemeyi kontrol et». İlk seferde tester Google girişi.
 
 ---
 

@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:geolocator/geolocator.dart';
-import '../../domain/repositories/location_repository.dart';
+import '../../domain/entities/location_access_status.dart';
 import '../../domain/entities/track_point.dart';
+import '../../domain/repositories/location_repository.dart';
 
 /// Simulated GPS location repository for emulator testing
 /// Simulates a realistic 5km running route with speed variations and GPS jitter
@@ -73,9 +74,14 @@ class SimulatedLocationRepository implements LocationRepository {
   }
 
   @override
-  Future<bool> requestPermission() async {
-    return true; // Always granted in simulation
-  }
+  Future<bool> requestPermission() async => true;
+
+  @override
+  Future<LocationAccessStatus> getAccessStatus() async =>
+      LocationAccessStatus.granted;
+
+  @override
+  Future<bool> openAppSettings() async => true;
 
   @override
   Future<TrackPoint> getCurrentPosition() async {

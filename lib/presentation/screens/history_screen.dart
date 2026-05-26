@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import '../../core/di/service_locator.dart';
 import '../../domain/entities/run_session.dart';
 import '../../domain/repositories/run_session_repository.dart';
-
-import '../utils/run_share.dart';
+import '../screens/comparison_screen.dart';
+import '../widgets/app_update_card.dart';
+import '../widgets/run_history_card.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -16,6 +17,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final RunSessionRepository _repository = getIt<RunSessionRepository>();
   List<RunSession> _sessions = [];
   bool _isLoading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -24,17 +26,56 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _loadSessions() async {
-    setState(() => _isLoading = true);
-    final sessions = await _repository.getAllSessions();
     setState(() {
-      _sessions = sessions;
-      _isLoading = false;
+      _isLoading = true;
+      _loadError = null;
     });
+    try {
+      final sessions = await _repository.getAllSessions();
+      if (!mounted) return;
+      setState(() {
+        _sessions = sessions;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = 'Koşular yüklenemedi: $e';
+      });
+    }
   }
 
-  Future<void> _deleteSession(String id) async {
-    await _repository.deleteSession(id);
-    _loadSessions();
+  Future<void> _deleteSession(RunSession session) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Koşuyu Sil'),
+        content: Text(
+            '${(session.totalDistance / 1000).toStringAsFixed(2)} km koşusunu silmek istediğinize emin misiniz?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('İptal')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      try {
+        await _repository.deleteSession(session.id);
+        await _loadSessions();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Silinemedi: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -44,162 +85,94 @@ class _HistoryScreenState extends State<HistoryScreen> {
         title: const Text('Koşu Geçmişi'),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Yenile',
+            onPressed: _isLoading ? null : _loadSessions,
+          ),
+        ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _sessions.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.directions_run, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text(
-                        'Henüz koşu yok',
-                        style: TextStyle(fontSize: 18, color: Colors.grey),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'İlk koşunu başlat!',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: _sessions.length,
-                  padding: const EdgeInsets.all(16),
-                  itemBuilder: (context, index) {
-                    final session = _sessions[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        leading: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.directions_run,
-                            color: Colors.blue,
-                            size: 28,
-                          ),
-                        ),
-                        title: Text(
-                          '${(session.totalDistance / 1000).toStringAsFixed(2)} km',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 4),
-                            Text(
-                              _formatDate(session.startTime),
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(Icons.timer, size: 14, color: Colors.grey.shade600),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _formatDuration(session.elapsedTime),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Icon(Icons.speed, size: 14, color: Colors.grey.shade600),
-                                const SizedBox(width: 4),
-                                Text(
-                                  session.averagePaceFormatted,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              tooltip: 'GPX paylaş',
-                              icon: const Icon(Icons.share, color: Colors.blue),
-                              onPressed: () =>
-                                  RunShare.share(context, session),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _showDeleteDialog(session),
-                            ),
-                          ],
-                        ),
-                        onTap: () {
-                          // TODO: Navigate to detail screen
-                        },
-                      ),
-                    );
-                  },
-                ),
+      body: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: AppUpdateCard(),
+          ),
+          Expanded(child: _buildBody()),
+        ],
+      ),
     );
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final sessionDay = DateTime(date.year, date.month, date.day);
-    
-    if (sessionDay == today) {
-      return 'Bugün ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    } else if (sessionDay == today.subtract(const Duration(days: 1))) {
-      return 'Dün ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    } else {
-      return '${date.day}.${date.month}.${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
     }
-  }
-
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-    
-    if (hours > 0) {
-      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  void _showDeleteDialog(RunSession session) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Koşuyu Sil'),
-        content: Text(
-          '${(session.totalDistance / 1000).toStringAsFixed(2)} km koşusunu silmek istediğinize emin misiniz?',
+    if (_loadError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
+              const SizedBox(height: 16),
+              Text(
+                _loadError!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _loadSessions,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Tekrar dene'),
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
+      );
+    }
+    if (_sessions.isEmpty) {
+      return const _EmptyHistory();
+    }
+    return ListView.builder(
+      itemCount: _sessions.length,
+      padding: const EdgeInsets.all(16),
+      itemBuilder: (context, index) {
+        final session = _sessions[index];
+        return RunHistoryCard(
+          session: session,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ComparisonScreen(initialSession: session),
+            ),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteSession(session.id);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Sil'),
-          ),
+          onDelete: () => _deleteSession(session),
+        );
+      },
+    );
+  }
+}
+
+class _EmptyHistory extends StatelessWidget {
+  const _EmptyHistory();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.directions_run, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
+          Text('Henüz koşu yok',
+              style: TextStyle(fontSize: 18, color: Colors.grey)),
+          SizedBox(height: 8),
+          Text('İlk koşunu başlat!',
+              style: TextStyle(fontSize: 14, color: Colors.grey)),
         ],
       ),
     );
