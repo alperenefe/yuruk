@@ -1,7 +1,7 @@
 # CI/CD: GitHub Actions → Firebase App Distribution
 
 **Repo:** [alperenefe/yuruk](https://github.com/alperenefe/yuruk)  
-**Android paket adı:** `com.trendyol.yuruk.yuruk`
+**Android paket adı:** `com.alper.yuruk.yuruk`
 
 Müzik Teorisi ile aynı akış: yalnızca **Actions → Run workflow** ile APK derlenir ve Firebase’e gider.
 
@@ -9,23 +9,23 @@ Müzik Teorisi ile aynı akış: yalnızca **Actions → Run workflow** ile APK 
 
 ## Müzik Teorisi’nden ne tekrarlanır?
 
-Aynı Firebase projesini (`music-trainer-90e39`) kullanabilirsin:
+Firebase / GCP projesi: **`kosu-497509`**
 
-| Secret | Bu repo için |
-|--------|----------------|
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | **Aynı JSON** (music_theory_trainer’daki gibi) |
-| `FIREBASE_TESTER_GROUPS` | **Aynı** — örn. `testers` |
-| `FIREBASE_ANDROID_APP_ID` | **Farklı** — Yürük Android uygulamasının App ID’si |
+| Secret | Durum |
+|--------|--------|
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | `kosu-497509-….json` (GitHub’a eklendi) |
+| `FIREBASE_TESTER_GROUPS` | `testers` |
+| `FIREBASE_ANDROID_APP_ID` | `1:102727725395:android:6387639a3e3d28e97b31a6` |
 | `GOOGLE_SERVICES_JSON` | İsteğe bağlı |
 
-Service account ve **Firebase App Testers API** bir kez açıldıysa tekrar gerekmez.
+**Firebase App Testers API** → Google Cloud, proje **kosu-497509** üzerinde etkin olmalı.
 
 ---
 
 ## Firebase (bir kez — bu uygulama)
 
 1. [Firebase Console](https://console.firebase.google.com/) → **music trainer** (veya yeni proje).
-2. **Add app** → Android → paket: `com.trendyol.yuruk.yuruk`.
+2. **Add app** → Android → paket: `com.alper.yuruk.yuruk`.
 3. **App Distribution** → bu uygulama için dağıtımı etkinleştir.
 4. **App ID**’yi kopyala (`1:…:android:…`).
 5. GitHub → [yuruk/settings/secrets/actions](https://github.com/alperenefe/yuruk/settings/secrets/actions) → secret’ları ekle.
