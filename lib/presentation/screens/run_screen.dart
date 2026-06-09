@@ -153,7 +153,10 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                         ),
                       ),
                     
-                    RunStatsRow(session: state.currentSession),
+                    RunStatsRow(
+                      session: state.currentSession,
+                      isRunning: state.isRunning,
+                    ),
                     
                     if (!state.isRunning) ...[
                       const SizedBox(height: 12),

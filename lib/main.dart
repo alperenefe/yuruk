@@ -9,6 +9,7 @@ import 'presentation/screens/run_screen.dart';
 import 'presentation/screens/history_screen.dart';
 import 'presentation/screens/workouts_screen.dart';
 import 'presentation/screens/comparison_screen.dart';
+import 'presentation/theme/app_theme.dart';
 import 'infrastructure/background/foreground_task_handler.dart';
 import 'presentation/widgets/app_update_card.dart';
 
@@ -51,17 +52,9 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'Yürük',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white,
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.blue,
-          unselectedItemColor: Colors.grey,
-          type: BottomNavigationBarType.fixed,
-        ),
-      ),
+      theme: YurukAppTheme.light(),
+      darkTheme: YurukAppTheme.dark(),
+      themeMode: ThemeMode.system,
       home: const MainScreen(),
     );
   }
@@ -145,25 +138,33 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.directions_run),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
+      ),
+      bottomNavigationBar: NavigationBar(
+        key: const Key('yuruk_main_nav'),
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.directions_run_outlined),
+            selectedIcon: Icon(Icons.directions_run_rounded),
             label: 'Koş',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.fitness_center),
+          NavigationDestination(
+            icon: Icon(Icons.fitness_center_outlined),
+            selectedIcon: Icon(Icons.fitness_center_rounded),
             label: 'Etkinlikler',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history_rounded),
             label: 'Geçmiş',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.compare_arrows),
+          NavigationDestination(
+            icon: Icon(Icons.science_outlined),
+            selectedIcon: Icon(Icons.science_rounded),
             label: 'Lab',
           ),
         ],

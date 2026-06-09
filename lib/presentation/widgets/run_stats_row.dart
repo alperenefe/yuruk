@@ -1,57 +1,39 @@
 import 'package:flutter/material.dart';
+
 import '../../domain/entities/run_session.dart';
 import '../utils/format_utils.dart';
+import 'animated_stat_value.dart';
 
-/// Aktif koşu sırasında mesafe / süre / pace'i gösteren istatistik satırı.
 class RunStatsRow extends StatelessWidget {
+  const RunStatsRow({super.key, required this.session, this.isRunning = false});
+
   final RunSession? session;
-  const RunStatsRow({super.key, required this.session});
+  final bool isRunning;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _Stat(
+        AnimatedStatValue(
           label: 'Mesafe',
           value: session != null
               ? formatDistance(session!.totalDistance)
               : '0.00 km',
+          emphasize: isRunning,
         ),
-        _Stat(
+        AnimatedStatValue(
           label: 'Süre',
           value: session != null
               ? formatDuration(session!.elapsedTime)
               : '0:00',
+          emphasize: isRunning,
         ),
-        _Stat(
+        AnimatedStatValue(
           label: 'Pace',
           value: session?.averagePaceFormatted ?? '--:--',
+          emphasize: isRunning,
         ),
-      ],
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  final String label;
-  final String value;
-  const _Stat({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500)),
-        const SizedBox(height: 4),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 20, fontWeight: FontWeight.bold)),
       ],
     );
   }
