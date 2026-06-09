@@ -10,7 +10,6 @@ import 'presentation/screens/history_screen.dart';
 import 'presentation/screens/workouts_screen.dart';
 import 'presentation/screens/comparison_screen.dart';
 import 'infrastructure/background/foreground_task_handler.dart';
-import 'services/app_distribution_update.dart';
 import 'presentation/widgets/app_update_card.dart';
 
 const _sentryDsn = String.fromEnvironment('SENTRY_DSN', defaultValue: '');
@@ -47,14 +46,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      AppDistributionUpdate.checkFromApp();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
