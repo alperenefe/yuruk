@@ -21,7 +21,7 @@ class LiveAlgorithmComparator {
 
   FilteredTrackResult get primaryResult {
     final idx = _pipelines.indexWhere(
-      (p) => p.params.name == GpsFilterParams.current.name,
+      (p) => p.params.name == GpsFilterParams.primary.name,
     );
     return idx >= 0 ? _pipelines[idx].result : _pipelines[0].result;
   }

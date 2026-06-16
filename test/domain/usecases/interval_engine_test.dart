@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yuruk/core/config/interval_feedback_config.dart';
 import 'package:yuruk/domain/entities/interval_step.dart';
 import 'package:yuruk/domain/entities/interval_session.dart';
 import 'package:yuruk/domain/entities/workout_plan.dart';
@@ -178,6 +179,98 @@ void main() {
       
       // Relative time: 150 - 120 = 30 seconds
       expect(updatedSession.currentStepProgress, 30.0);
+    });
+
+    test('kısa adım (<1 dk) tempo geri bildirimi %50 civarında bir kez', () {
+      final shortPlan = WorkoutPlan(
+        id: 'short',
+        name: 'Short',
+        createdAt: DateTime.now(),
+        steps: [
+          IntervalStep.time(
+            id: 's1',
+            duration: const Duration(seconds: 40),
+            targetPace: '5:00',
+          ),
+        ],
+      );
+      engine.start(IntervalSession(workoutPlan: shortPlan));
+
+      final (_, before50) = engine.update(createTestRunSession(
+        totalDistance: 50,
+        elapsedTime: const Duration(seconds: 18),
+      ));
+      expect(before50.whereType<IntervalMidStepFeedback>(), isEmpty);
+
+      final (_, at50) = engine.update(createTestRunSession(
+        totalDistance: 80,
+        elapsedTime: const Duration(seconds: 22),
+      ));
+      expect(at50.whereType<IntervalMidStepFeedback>().length, 1);
+
+      final (_, again) = engine.update(createTestRunSession(
+        totalDistance: 100,
+        elapsedTime: const Duration(seconds: 30),
+      ));
+      expect(again.whereType<IntervalMidStepFeedback>(), isEmpty);
+    });
+
+    test('uzun adım (>=1 dk) tempo geri bildirimi her tam dakikada', () {
+      final longPlan = WorkoutPlan(
+        id: 'long',
+        name: 'Long',
+        createdAt: DateTime.now(),
+        steps: [
+          IntervalStep.time(
+            id: 's1',
+            duration: const Duration(minutes: 3),
+            targetPace: '5:00',
+          ),
+        ],
+      );
+      engine.start(IntervalSession(workoutPlan: longPlan));
+
+      final (_, at59) = engine.update(createTestRunSession(
+        totalDistance: 150,
+        elapsedTime: const Duration(seconds: 59),
+      ));
+      expect(at59.whereType<IntervalMidStepFeedback>(), isEmpty);
+
+      final (_, at60) = engine.update(createTestRunSession(
+        totalDistance: 160,
+        elapsedTime: const Duration(seconds: 60),
+      ));
+      expect(at60.whereType<IntervalMidStepFeedback>().length, 1);
+
+      final (_, at119) = engine.update(createTestRunSession(
+        totalDistance: 300,
+        elapsedTime: const Duration(seconds: 119),
+      ));
+      expect(at119.whereType<IntervalMidStepFeedback>(), isEmpty);
+
+      final (_, at120) = engine.update(createTestRunSession(
+        totalDistance: 320,
+        elapsedTime: const Duration(seconds: 120),
+      ));
+      expect(at120.whereType<IntervalMidStepFeedback>().length, 1);
+    });
+
+    test('mesafe adımı hedef tempo ile süre tahmini', () {
+      final step = IntervalStep.distance(
+        id: 'd1',
+        meters: 400,
+        targetPace: '5:00',
+      );
+      expect(IntervalFeedbackConfig.expectedStepDurationSeconds(step), 120);
+      expect(IntervalFeedbackConfig.usesMinuteFeedback(step), isTrue);
+
+      final short = IntervalStep.distance(
+        id: 'd2',
+        meters: 100,
+        targetPace: '3:00',
+      );
+      expect(IntervalFeedbackConfig.expectedStepDurationSeconds(short), 18);
+      expect(IntervalFeedbackConfig.usesMinuteFeedback(short), isFalse);
     });
   });
 }

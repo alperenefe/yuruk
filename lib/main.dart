@@ -4,14 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'application/providers/run_session_provider.dart';
+import 'application/providers/training_program_provider.dart';
 import 'core/di/service_locator.dart';
 import 'presentation/screens/run_screen.dart';
 import 'presentation/screens/history_screen.dart';
 import 'presentation/screens/workouts_screen.dart';
 import 'presentation/screens/comparison_screen.dart';
+import 'presentation/screens/training_plan_screen.dart';
 import 'presentation/theme/app_theme.dart';
 import 'infrastructure/background/foreground_task_handler.dart';
-import 'presentation/widgets/app_update_card.dart';
 
 const _sentryDsn = String.fromEnvironment('SENTRY_DSN', defaultValue: '');
 
@@ -60,16 +62,14 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-class MainScreen extends StatefulWidget {
+class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 0;
-
+class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   void initState() {
     super.initState();
@@ -128,8 +128,9 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  final List<Widget> _screens = const [
+  static const _screens = [
     RunScreen(),
+    TrainingPlanScreen(),
     WorkoutsScreen(),
     HistoryScreen(),
     ComparisonScreen(),
@@ -137,20 +138,31 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = ref.watch(mainTabIndexProvider);
+    final isRunActive = ref.watch(runSessionControllerProvider).isRunning;
+
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex,
+        index: currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: isRunActive
+          ? null
+          : NavigationBar(
         key: const Key('yuruk_main_nav'),
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        selectedIndex: currentIndex,
+        onDestinationSelected: (index) =>
+            ref.read(mainTabIndexProvider.notifier).state = index,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.directions_run_outlined),
             selectedIcon: Icon(Icons.directions_run_rounded),
             label: 'Koş',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.flag_outlined),
+            selectedIcon: Icon(Icons.flag_rounded),
+            label: 'Hedef',
           ),
           NavigationDestination(
             icon: Icon(Icons.fitness_center_outlined),

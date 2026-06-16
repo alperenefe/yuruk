@@ -63,6 +63,20 @@ class ForegroundTaskManager {
     }
   }
 
+  static Future<void> updateNotification({
+    required String title,
+    required String text,
+  }) async {
+    try {
+      if (await FlutterForegroundTask.isRunningService) {
+        await FlutterForegroundTask.updateService(
+          notificationTitle: title,
+          notificationText: text,
+        );
+      }
+    } catch (_) {}
+  }
+
   static Future<void> stopServiceSafe() async {
     try {
       if (await FlutterForegroundTask.isRunningService) {

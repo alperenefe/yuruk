@@ -74,17 +74,20 @@ class RunSessionController extends StateNotifier<RunSessionState> {
   /// startRun tamamlanmadan stopRun çağrılırsa eski start iptal edilir.
   int _runGeneration = 0;
   bool _isStopping = false;
+  Timer? _autoStopAfterWorkoutTimer;
 
   RunSessionController(
     this._locationRepository,
     this._runSessionRepository,
   )   : _startRunSession = StartRunSession(_locationRepository),
-        _stopRunSession = StopRunSession(_locationRepository, _runSessionRepository),
+        _stopRunSession = StopRunSession(_runSessionRepository),
         super(RunSessionState()) {
     _ttsService.initialize();
   }
 
   Future<void> _teardownTracking() async {
+    _autoStopAfterWorkoutTimer?.cancel();
+    _autoStopAfterWorkoutTimer = null;
     _elapsedTimer?.cancel();
     _elapsedTimer = null;
     await _locationSubscription?.cancel();
@@ -235,7 +238,7 @@ class RunSessionController extends StateNotifier<RunSessionState> {
           event.step,
         ));
       } else if (event is IntervalMidStepFeedback) {
-        if (kDebugMode) print('📊 Mid-step feedback at 50%');
+        if (kDebugMode) print('📊 Interval pace feedback');
         final feedback = _announcementService.getMidStepFeedbackAnnouncement(
           event.step,
           updatedInterval,
@@ -246,8 +249,23 @@ class RunSessionController extends StateNotifier<RunSessionState> {
       } else if (event is IntervalWorkoutCompleted) {
         if (kDebugMode) print('🎉 Workout completed!');
         _ttsService.speak(_announcementService.getWorkoutCompletedAnnouncement());
+        unawaited(
+          ForegroundTaskManager.updateNotification(
+            title: 'Yürük — Antrenman Tamamlandı',
+            text: 'Koşu kaydediliyor…',
+          ),
+        );
+        _scheduleAutoStopAfterWorkout();
       }
     }
+  }
+
+  void _scheduleAutoStopAfterWorkout() {
+    _autoStopAfterWorkoutTimer?.cancel();
+    _autoStopAfterWorkoutTimer = Timer(const Duration(seconds: 4), () {
+      if (!state.isRunning || _isStopping) return;
+      unawaited(stopRun());
+    });
   }
 
   void _startElapsedTimer() {
@@ -267,27 +285,37 @@ class RunSessionController extends StateNotifier<RunSessionState> {
     if (_isStopping) return;
     _isStopping = true;
     _runGeneration++;
+    _autoStopAfterWorkoutTimer?.cancel();
+    _autoStopAfterWorkoutTimer = null;
+
+    final session = state.currentSession;
+    final wasRunning = state.isRunning;
+    final filterExports = state.algorithmResults
+        .map(
+          (r) => NamedTrackSegment(
+            name: r.params.name,
+            points: List<TrackPoint>.from(r.points),
+          ),
+        )
+        .toList();
 
     state = state.copyWith(isLoading: true);
 
-    await _teardownTracking();
-
     try {
-      if (state.currentSession != null && state.isRunning) {
-        final filterExports = state.algorithmResults
-            .map(
-              (r) => NamedTrackSegment(
-                name: r.params.name,
-                points: List<TrackPoint>.from(r.points),
-              ),
-            )
-            .toList();
-        final sessionToSave = state.currentSession!.copyWith(
-          filterExportTracks: filterExports,
-        );
-        state = state.copyWith(currentSession: sessionToSave);
+      if (session != null && wasRunning) {
+        final sessionToSave = session.copyWith(filterExportTracks: filterExports);
 
+        // Önce diske yaz — kullanıcı hemen arka plana atarsa veri kaybolmasın.
         final stoppedSession = await _stopRunSession.execute(sessionToSave);
+
+        await _teardownTracking();
+
+        unawaited(
+          ForegroundTaskManager.updateNotification(
+            title: 'Yürük — Koşu Kaydedildi',
+            text: 'Geçmiş sekmesinden görüntüleyebilirsin',
+          ),
+        );
         _ttsService.speak(_announcementService.getStopAnnouncement(stoppedSession));
 
         state = state.copyWith(
@@ -296,10 +324,12 @@ class RunSessionController extends StateNotifier<RunSessionState> {
           clearError: true,
         );
       } else {
+        await _teardownTracking();
         state = state.copyWith(isRunning: false, clearError: true);
       }
     } catch (e, st) {
       CrashReporting.captureException(e, stackTrace: st, hint: 'stop_run');
+      await _teardownTracking();
       state = state.copyWith(isRunning: false, error: e.toString());
     } finally {
       _isStopping = false;
@@ -310,6 +340,7 @@ class RunSessionController extends StateNotifier<RunSessionState> {
   @override
   void dispose() {
     _runGeneration++;
+    _autoStopAfterWorkoutTimer?.cancel();
     _elapsedTimer?.cancel();
     _locationSubscription?.cancel();
     _ttsService.dispose();

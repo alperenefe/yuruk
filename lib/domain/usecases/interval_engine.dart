@@ -33,10 +33,13 @@ class IntervalWorkoutCompleted extends IntervalEvent {}
 class IntervalEngine {
   IntervalSession? _currentSession;
   final List<IntervalEvent> _events = [];
-  final Set<int> _midStepFeedbackGiven = {}; // Track which steps got 50% feedback
+  final Set<int> _midStepFeedbackGiven = {};
+  final Map<int, int> _lastMinuteFeedbackSent = {};
 
   /// Start a new interval session
   IntervalSession start(IntervalSession session) {
+    _midStepFeedbackGiven.clear();
+    _lastMinuteFeedbackSent.clear();
     _currentSession = session.copyWith(
       status: IntervalSessionStatus.inProgress,
       startTime: DateTime.now(),
@@ -91,22 +94,7 @@ class IntervalEngine {
       stepActualTimeSeconds: actualTime,
     );
 
-    // Check for 50% mid-step feedback (only for non-rest steps with target pace)
-    final currentStepIndex = _currentSession!.currentStepIndex;
-    if (!_midStepFeedbackGiven.contains(currentStepIndex) && 
-        !currentStep.isRest && 
-        currentStep.targetPace != null) {
-      // Calculate progress percentage manually
-      final target = currentStep.type == IntervalType.distance 
-          ? (currentStep.targetDistance ?? 0) 
-          : (currentStep.targetDuration?.inSeconds.toDouble() ?? 0);
-      final progressPercentage = target > 0 ? (newProgress / target) * 100 : 0.0;
-      
-      if (progressPercentage >= IntervalFeedbackConfig.midStepFeedbackPercentage) {
-        _midStepFeedbackGiven.add(currentStepIndex);
-        _events.add(IntervalMidStepFeedback(currentStep, currentStepIndex));
-      }
-    }
+    _maybeEmitPaceFeedback(currentStep, newProgress);
 
     // Check if current step is completed
     if (_currentSession!.isCurrentStepCompleted) {
@@ -114,6 +102,36 @@ class IntervalEngine {
     }
 
     return (_currentSession!, List.from(_events));
+  }
+
+  void _maybeEmitPaceFeedback(IntervalStep currentStep, double newProgress) {
+    final currentStepIndex = _currentSession!.currentStepIndex;
+    if (currentStep.isRest || currentStep.targetPace == null) return;
+
+    if (IntervalFeedbackConfig.usesMinuteFeedback(currentStep)) {
+      final elapsedSec = _currentSession!.stepActualTimeSeconds;
+      final minute = elapsedSec ~/ 60;
+      if (minute < 1) return;
+
+      final lastSent = _lastMinuteFeedbackSent[currentStepIndex] ?? 0;
+      if (minute > lastSent) {
+        _lastMinuteFeedbackSent[currentStepIndex] = minute;
+        _events.add(IntervalMidStepFeedback(currentStep, currentStepIndex));
+      }
+      return;
+    }
+
+    if (_midStepFeedbackGiven.contains(currentStepIndex)) return;
+
+    final target = currentStep.type == IntervalType.distance
+        ? (currentStep.targetDistance ?? 0)
+        : (currentStep.targetDuration?.inSeconds.toDouble() ?? 0);
+    final progressPercentage = target > 0 ? (newProgress / target) * 100 : 0.0;
+
+    if (progressPercentage >= IntervalFeedbackConfig.midStepFeedbackPercentage) {
+      _midStepFeedbackGiven.add(currentStepIndex);
+      _events.add(IntervalMidStepFeedback(currentStep, currentStepIndex));
+    }
   }
 
   void _handleStepCompletion(RunSession runSession) {

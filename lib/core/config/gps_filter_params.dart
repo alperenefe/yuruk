@@ -84,70 +84,6 @@ class GpsFilterParams {
     poorAccuracyThreshold: 9999,
   );
 
-  static const GpsFilterParams current = GpsFilterParams(
-    name: 'Mevcut',
-    color: Color(0xFF2196F3),
-    useKalman: true,
-    kalmanLatLngQ: 0.0001,
-    kalmanLatLngR: 0.01,
-    accuracyThreshold: 25.0,
-    maxSpeedKmh: 50.0,
-    maxImpliedSpeedKmh: 100.0,
-    warmUpCount: 10,
-    warmUpMinDistance: 2.0,
-    postWarmUpMinDistance: 5.0,
-    stationarySpeedThreshold: 0.5,
-    poorAccuracyThreshold: 15.0,
-  );
-
-  static const GpsFilterParams aggressiveKalman = GpsFilterParams(
-    name: 'Güçlü Kalman',
-    color: Color(0xFF4CAF50),
-    useKalman: true,
-    kalmanLatLngQ: 0.00001,
-    kalmanLatLngR: 0.001,
-    accuracyThreshold: 25.0,
-    maxSpeedKmh: 50.0,
-    maxImpliedSpeedKmh: 100.0,
-    warmUpCount: 10,
-    warmUpMinDistance: 2.0,
-    postWarmUpMinDistance: 5.0,
-    stationarySpeedThreshold: 0.5,
-    poorAccuracyThreshold: 15.0,
-  );
-
-  static const GpsFilterParams lenient = GpsFilterParams(
-    name: 'Toleranslı',
-    color: Color(0xFFFF9800),
-    useKalman: true,
-    kalmanLatLngQ: 0.0001,
-    kalmanLatLngR: 0.01,
-    accuracyThreshold: 50.0,
-    maxSpeedKmh: 70.0,
-    maxImpliedSpeedKmh: 150.0,
-    warmUpCount: 5,
-    warmUpMinDistance: 1.0,
-    postWarmUpMinDistance: 3.0,
-    stationarySpeedThreshold: 0.3,
-    poorAccuracyThreshold: 25.0,
-  );
-
-  static const GpsFilterParams strict = GpsFilterParams(
-    name: 'Katı',
-    color: Color(0xFFF44336),
-    useKalman: true,
-    kalmanLatLngQ: 0.0001,
-    kalmanLatLngR: 0.01,
-    accuracyThreshold: 12.0,
-    maxSpeedKmh: 35.0,
-    maxImpliedSpeedKmh: 70.0,
-    warmUpCount: 15,
-    warmUpMinDistance: 3.0,
-    postWarmUpMinDistance: 8.0,
-    stationarySpeedThreshold: 0.8,
-    poorAccuracyThreshold: 10.0,
-  );
-
   /// Strava-benzeri variant 1: Kalman yok.
   /// Strava analizi: ortalama 22.95° yön değişimi, 80 spike → ham GPS.
   /// Strava haritada güzel görünüyor çünkü 1Hz nokta yoğunluğu var, filtre değil.
@@ -167,24 +103,8 @@ class GpsFilterParams {
     poorAccuracyThreshold: 20.0,
   );
 
-  /// Strava-benzeri variant 2: Minimal Kalman (R=0.0005 → GPS'e %99 güvenir).
-  /// Strava'nın 80 spike'ını kaldırır ama Strava gibi tüm hareketi yazar.
-  /// Koşarken noktaları kaybetmez, sadece anlık GPS zıplamalarını düzeltir.
-  static const GpsFilterParams stravaLight = GpsFilterParams(
-    name: 'S2-MinKalman',
-    color: Color(0xFFFF6D00),
-    useKalman: true,
-    kalmanLatLngQ: 0.0002,
-    kalmanLatLngR: 0.0005,
-    accuracyThreshold: 20.0,
-    maxSpeedKmh: 50.0,
-    maxImpliedSpeedKmh: 150.0,
-    warmUpCount: 3,
-    warmUpMinDistance: 0.5,
-    postWarmUpMinDistance: 0.5,
-    stationarySpeedThreshold: 0.3,
-    poorAccuracyThreshold: 20.0,
-  );
+  /// Canlı koşuda gösterilen ana algoritma (mesafe + harita çizgisi).
+  static const GpsFilterParams primary = stravaRaw;
 
   /// V1 — Spike Guard: Kalman yok + ham GPS koordinat spike tespiti.
   /// Kalman'dan önce: eğer raw GPS koordinatı 10 m/s+ hızda zıpladıysa → at.
@@ -235,12 +155,7 @@ class GpsFilterParams {
 
   static const List<GpsFilterParams> allPresets = [
     raw,
-    current,
-    aggressiveKalman,
-    lenient,
-    strict,
     stravaRaw,
-    stravaLight,
     spikeGuard,
     iirAdaptive,
   ];

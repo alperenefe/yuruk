@@ -47,26 +47,26 @@ void main() {
     late GpsFilterPipeline pipeline;
 
     setUp(() {
-      pipeline = GpsFilterPipeline(GpsFilterParams.current);
+      pipeline = GpsFilterPipeline(GpsFilterParams.stravaRaw);
     });
 
     test('doğruluk eşiğini aşan nokta reddedilir', () {
-      for (var i = 0; i < GpsFilterParams.current.warmUpCount; i++) {
+      for (var i = 0; i < GpsFilterParams.stravaRaw.warmUpCount; i++) {
         pipeline.processPoint(pt(39.0 + i * 0.0001, 32.0, offsetSec: i));
       }
       final beforeCount = pipeline.result.acceptedCount;
       pipeline.processPoint(
-          pt(39.0, 32.0, accuracy: GpsFilterParams.current.accuracyThreshold + 1, offsetSec: 100));
+          pt(39.0, 32.0, accuracy: GpsFilterParams.stravaRaw.accuracyThreshold + 1, offsetSec: 100));
       expect(pipeline.result.acceptedCount, beforeCount);
     });
 
     test('max hız aşılınca nokta reddedilir', () {
-      for (var i = 0; i < GpsFilterParams.current.warmUpCount; i++) {
+      for (var i = 0; i < GpsFilterParams.stravaRaw.warmUpCount; i++) {
         pipeline.processPoint(pt(39.0 + i * 0.0001, 32.0, offsetSec: i));
       }
       final beforeCount = pipeline.result.acceptedCount;
       pipeline.processPoint(pt(39.0, 32.0,
-          speed: GpsFilterParams.current.maxSpeedKmh / 3.6 + 1, offsetSec: 100));
+          speed: GpsFilterParams.stravaRaw.maxSpeedKmh / 3.6 + 1, offsetSec: 100));
       expect(pipeline.result.acceptedCount, beforeCount);
     });
 

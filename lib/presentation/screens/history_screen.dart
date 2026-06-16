@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../application/providers/run_session_provider.dart';
+import '../../application/providers/training_program_provider.dart';
 import '../../core/di/service_locator.dart';
 import '../../domain/entities/run_session.dart';
 import '../../domain/repositories/run_session_repository.dart';
 import '../screens/comparison_screen.dart';
-import '../widgets/app_update_card.dart';
 import '../widgets/run_history_card.dart';
 
-class HistoryScreen extends StatefulWidget {
+/// Geçmiş sekmesi indeksi (main.dart NavigationBar sırası).
+const _historyTabIndex = 3;
+
+class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
 
   @override
-  State<HistoryScreen> createState() => _HistoryScreenState();
+  ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
 }
 
-class _HistoryScreenState extends State<HistoryScreen> {
+class _HistoryScreenState extends ConsumerState<HistoryScreen>
+    with WidgetsBindingObserver {
   final RunSessionRepository _repository = getIt<RunSessionRepository>();
   List<RunSession> _sessions = [];
   bool _isLoading = true;
@@ -22,7 +29,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadSessions();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadSessions();
+    }
   }
 
   Future<void> _loadSessions() async {
@@ -80,6 +101,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(mainTabIndexProvider, (prev, next) {
+      if (next == _historyTabIndex && prev != _historyTabIndex) {
+        _loadSessions();
+      }
+    });
+
+    ref.listen(runSessionControllerProvider, (prev, next) {
+      if (prev == null) return;
+      final saved = prev.isRunning &&
+          !next.isRunning &&
+          prev.isLoading &&
+          !next.isLoading &&
+          next.currentSession?.status == RunStatus.stopped;
+      if (saved) {
+        _loadSessions();
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Koşu Geçmişi'),
@@ -93,15 +132,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: AppUpdateCard(),
-          ),
-          Expanded(child: _buildBody()),
-        ],
-      ),
+      body: _buildBody(),
     );
   }
 

@@ -3,11 +3,12 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i3;
+import 'dart:async' as _i4;
 
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:yuruk/domain/entities/track_point.dart' as _i4;
-import 'package:yuruk/domain/repositories/location_repository.dart' as _i2;
+import 'package:yuruk/domain/entities/location_access_status.dart' as _i5;
+import 'package:yuruk/domain/entities/track_point.dart' as _i2;
+import 'package:yuruk/domain/repositories/location_repository.dart' as _i3;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -24,54 +25,98 @@ import 'package:yuruk/domain/repositories/location_repository.dart' as _i2;
 // ignore_for_file: subtype_of_sealed_class
 // ignore_for_file: invalid_use_of_internal_member
 
+class _FakeTrackPoint_0 extends _i1.SmartFake implements _i2.TrackPoint {
+  _FakeTrackPoint_0(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
+}
+
 /// A class which mocks [LocationRepository].
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockLocationRepository extends _i1.Mock
-    implements _i2.LocationRepository {
+    implements _i3.LocationRepository {
   MockLocationRepository() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i3.Stream<_i4.TrackPoint> getLocationStream() =>
+  _i4.Stream<_i2.TrackPoint> getLocationStream() =>
       (super.noSuchMethod(
             Invocation.method(#getLocationStream, []),
-            returnValue: _i3.Stream<_i4.TrackPoint>.empty(),
+            returnValue: _i4.Stream<_i2.TrackPoint>.empty(),
           )
-          as _i3.Stream<_i4.TrackPoint>);
+          as _i4.Stream<_i2.TrackPoint>);
 
   @override
-  _i3.Future<void> startTracking() =>
+  _i4.Future<void> startTracking() =>
       (super.noSuchMethod(
             Invocation.method(#startTracking, []),
-            returnValue: _i3.Future<void>.value(),
-            returnValueForMissingStub: _i3.Future<void>.value(),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
           )
-          as _i3.Future<void>);
+          as _i4.Future<void>);
 
   @override
-  _i3.Future<void> stopTracking() =>
+  _i4.Future<void> stopTracking() =>
       (super.noSuchMethod(
             Invocation.method(#stopTracking, []),
-            returnValue: _i3.Future<void>.value(),
-            returnValueForMissingStub: _i3.Future<void>.value(),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
           )
-          as _i3.Future<void>);
+          as _i4.Future<void>);
 
   @override
-  _i3.Future<bool> isLocationServiceEnabled() =>
+  _i4.Future<bool> isLocationServiceEnabled() =>
       (super.noSuchMethod(
             Invocation.method(#isLocationServiceEnabled, []),
-            returnValue: _i3.Future<bool>.value(false),
+            returnValue: _i4.Future<bool>.value(false),
           )
-          as _i3.Future<bool>);
+          as _i4.Future<bool>);
 
   @override
-  _i3.Future<bool> requestPermission() =>
+  _i4.Future<bool> requestPermission() =>
       (super.noSuchMethod(
             Invocation.method(#requestPermission, []),
-            returnValue: _i3.Future<bool>.value(false),
+            returnValue: _i4.Future<bool>.value(false),
           )
-          as _i3.Future<bool>);
+          as _i4.Future<bool>);
+
+  @override
+  _i4.Future<_i5.LocationAccessStatus> getAccessStatus() =>
+      (super.noSuchMethod(
+            Invocation.method(#getAccessStatus, []),
+            returnValue: _i4.Future<_i5.LocationAccessStatus>.value(
+              _i5.LocationAccessStatus.granted,
+            ),
+          )
+          as _i4.Future<_i5.LocationAccessStatus>);
+
+  @override
+  _i4.Future<bool> openAppSettings() =>
+      (super.noSuchMethod(
+            Invocation.method(#openAppSettings, []),
+            returnValue: _i4.Future<bool>.value(false),
+          )
+          as _i4.Future<bool>);
+
+  @override
+  _i4.Future<_i2.TrackPoint> getCurrentPosition() =>
+      (super.noSuchMethod(
+            Invocation.method(#getCurrentPosition, []),
+            returnValue: _i4.Future<_i2.TrackPoint>.value(
+              _FakeTrackPoint_0(
+                this,
+                Invocation.method(#getCurrentPosition, []),
+              ),
+            ),
+          )
+          as _i4.Future<_i2.TrackPoint>);
+
+  @override
+  _i4.Future<_i2.TrackPoint?> getLastKnownPosition() =>
+      (super.noSuchMethod(
+            Invocation.method(#getLastKnownPosition, []),
+            returnValue: _i4.Future<_i2.TrackPoint?>.value(),
+          )
+          as _i4.Future<_i2.TrackPoint?>);
 }

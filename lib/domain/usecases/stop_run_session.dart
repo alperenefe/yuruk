@@ -1,22 +1,18 @@
 import '../entities/run_session.dart';
-import '../repositories/location_repository.dart';
 import '../repositories/run_session_repository.dart';
 
 class StopRunSession {
-  final LocationRepository locationRepository;
   final RunSessionRepository runSessionRepository;
 
-  StopRunSession(
-    this.locationRepository,
-    this.runSessionRepository,
-  );
+  StopRunSession(this.runSessionRepository);
 
+  /// GPS durdurma çağıran tarafta yapılır; önce diske yaz (arka plana atınca kayıp olmasın).
   Future<RunSession> execute(RunSession currentSession) async {
-    await locationRepository.stopTracking();
-
+    final endTime = DateTime.now();
     final stoppedSession = currentSession.copyWith(
       status: RunStatus.stopped,
-      endTime: DateTime.now(),
+      endTime: endTime,
+      elapsedTime: endTime.difference(currentSession.startTime),
     );
 
     await runSessionRepository.saveSession(stoppedSession);

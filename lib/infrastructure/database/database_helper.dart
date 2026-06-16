@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -46,6 +46,47 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE run_sessions ADD COLUMN rawTrackPoints TEXT');
       await db.execute('ALTER TABLE run_sessions ADD COLUMN filterExports TEXT');
     }
+    if (oldVersion < 4) {
+      await _createTrainingTables(db);
+    }
+  }
+
+  Future<void> _createTrainingTables(Database db) async {
+    const idType = 'TEXT PRIMARY KEY';
+    const textType = 'TEXT NOT NULL';
+    const integerType = 'INTEGER NOT NULL';
+    const realType = 'REAL';
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS training_programs (
+        id $idType,
+        name $textType,
+        raceDate $integerType,
+        distanceMeters $realType NOT NULL,
+        targetTime $textType,
+        targetPacePerKm TEXT,
+        daysPerWeek $integerType,
+        weeksTotal $integerType,
+        generatedBy TEXT,
+        createdAt $integerType,
+        isActive $integerType DEFAULT 0
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS scheduled_days (
+        id $idType,
+        programId $textType,
+        date $textType,
+        type $textType,
+        title $textType,
+        description TEXT,
+        targetDistanceMeters $realType,
+        targetPacePerKm TEXT,
+        workoutPlanId TEXT,
+        status $textType DEFAULT 'pending'
+      )
+    ''');
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -79,6 +120,8 @@ class DatabaseHelper {
         createdAt $integerType
       )
     ''');
+
+    await _createTrainingTables(db);
   }
 
   Future<void> close() async {

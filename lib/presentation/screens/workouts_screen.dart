@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../application/providers/training_program_provider.dart';
 import '../../core/di/service_locator.dart';
 import '../../domain/entities/workout_plan.dart';
+import '../../domain/repositories/training_program_repository.dart';
 import '../../domain/repositories/workout_repository.dart';
 import 'create_workout_screen.dart';
 
-class WorkoutsScreen extends StatefulWidget {
+class WorkoutsScreen extends ConsumerStatefulWidget {
   const WorkoutsScreen({super.key});
 
   @override
-  State<WorkoutsScreen> createState() => _WorkoutsScreenState();
+  ConsumerState<WorkoutsScreen> createState() => _WorkoutsScreenState();
 }
 
-class _WorkoutsScreenState extends State<WorkoutsScreen> {
+class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
   final WorkoutRepository _repository = getIt<WorkoutRepository>();
   List<WorkoutPlan> _plans = [];
   bool _isLoading = true;
@@ -43,7 +46,13 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   }
 
   Future<void> _deletePlan(String id) async {
+    final programRepo = getIt<TrainingProgramRepository>();
+    final linked = await programRepo.getActiveProgramReferencingWorkoutPlan(id);
+    await programRepo.clearWorkoutPlanReferences(id);
     await _repository.deletePlan(id);
+    if (linked != null) {
+      await ref.read(activeTrainingProgramProvider.notifier).refresh();
+    }
     _loadPlans();
   }
 
@@ -131,9 +140,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () => _showDeleteDialog(plan),
                         ),
-                        onTap: () {
-                          // TODO: Navigate to plan details or start workout
-                        },
+                        onTap: () => _showPlanActions(plan),
                       ),
                     );
                   },
@@ -153,27 +160,102 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 
-  void _showDeleteDialog(WorkoutPlan plan) {
-    showDialog(
+  void _showPlanActions(WorkoutPlan plan) {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Planı Sil'),
-        content: Text('${plan.name} planını silmek istediğinize emin misiniz?'),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.fitness_center, color: Colors.orange),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      plan.name,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.directions_run, color: Colors.blue),
+              title: const Text('Koşuya Başla'),
+              onTap: () {
+                Navigator.pop(ctx);
+                ref.read(pendingRunWorkoutProvider.notifier).state = plan;
+                ref.read(mainTabIndexProvider.notifier).state = 0;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${plan.name} — Koş sekmesine geçildi')),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit, color: Colors.orange),
+              title: const Text('Düzenle'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CreateWorkoutScreen(initialPlan: plan),
+                  ),
+                );
+                if (result == true) _loadPlans();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Sil', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showDeleteDialog(plan);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDeleteDialog(WorkoutPlan plan) async {
+    final programRepo = getIt<TrainingProgramRepository>();
+    final linkedProgram =
+        await programRepo.getActiveProgramReferencingWorkoutPlan(plan.id);
+
+    if (!mounted) return;
+
+    final message = linkedProgram != null
+        ? '«${plan.name}» aktif hedef planına («${linkedProgram.goal.name}») bağlı.\n\n'
+            'Silersen plandaki ilgili günler etkinliksiz kalır. Yine de silinsin mi?'
+        : '${plan.name} etkinliğini silmek istediğinize emin misiniz?';
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(linkedProgram != null ? 'Bağlı etkinlik' : 'Etkinliği sil'),
+        content: Text(message),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('İptal'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deletePlan(plan.id);
-            },
+            onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Sil'),
           ),
         ],
       ),
     );
+    if (ok == true) {
+      await _deletePlan(plan.id);
+    }
   }
 }

@@ -1,7 +1,12 @@
+import '../../domain/entities/interval_step.dart';
+
 /// Configuration for interval training feedback and tolerances
 class IntervalFeedbackConfig {
-  // Mid-step feedback trigger point
-  static const double midStepFeedbackPercentage = 50.0; // At 50% progress
+  /// Kısa adımlarda tek seferlik geri bildirim noktası.
+  static const double midStepFeedbackPercentage = 50.0;
+
+  /// Bu sürenin altındaki adımlarda %50; üstünde her dakika.
+  static const int minuteFeedbackThresholdSeconds = 60;
   
   /// Get lower tolerance (for being faster) based on target pace
   /// 
@@ -29,5 +34,40 @@ class IntervalFeedbackConfig {
     final upperTolerance = getUpperTolerance(targetPaceMinPerKm);
     
     return diffSeconds >= lowerTolerance && diffSeconds <= upperTolerance;
+  }
+
+  /// Adımın hedef süresi (sn). Mesafe adımlarında hedef tempo ile tahmin edilir.
+  static int? expectedStepDurationSeconds(IntervalStep step) {
+    if (step.isRest) return null;
+
+    if (step.type == IntervalType.time) {
+      return step.targetDuration?.inSeconds;
+    }
+
+    if (step.type == IntervalType.distance &&
+        step.targetDistance != null &&
+        step.targetPace != null) {
+      final paceMinPerKm = parsePaceMinPerKm(step.targetPace!);
+      if (paceMinPerKm == null || paceMinPerKm <= 0) return null;
+      return ((step.targetDistance! / 1000) * paceMinPerKm * 60).round();
+    }
+
+    return null;
+  }
+
+  /// true → her tam dakikada; false → yalnızca %50'de (kısa adım).
+  static bool usesMinuteFeedback(IntervalStep step) {
+    final expected = expectedStepDurationSeconds(step);
+    if (expected == null) return true;
+    return expected >= minuteFeedbackThresholdSeconds;
+  }
+
+  static double? parsePaceMinPerKm(String pace) {
+    final parts = pace.split(':');
+    if (parts.length != 2) return null;
+    final minutes = int.tryParse(parts[0]);
+    final seconds = int.tryParse(parts[1]);
+    if (minutes == null || seconds == null) return null;
+    return minutes + (seconds / 60);
   }
 }

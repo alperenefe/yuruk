@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/run_session_provider.dart';
+import '../../application/providers/training_program_provider.dart';
 import '../../domain/entities/run_session.dart';
 import '../../domain/entities/track_point.dart';
 import '../../domain/entities/workout_plan.dart';
@@ -81,6 +82,31 @@ class _RunScreenState extends ConsumerState<RunScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Hedef sekmesindeki "Koşuya Başla" planı otomatik yükler.
+    ref.listen<WorkoutPlan?>(pendingRunWorkoutProvider, (_, plan) {
+      if (plan != null) {
+        setState(() => _selectedPlan = plan);
+        ref.read(pendingRunWorkoutProvider.notifier).state = null;
+      }
+    });
+
+    ref.listen(runSessionControllerProvider, (prev, next) {
+      if (prev == null) return;
+      final justSaved = prev.isRunning &&
+          !next.isRunning &&
+          prev.isLoading &&
+          !next.isLoading &&
+          next.currentSession?.status == RunStatus.stopped;
+      if (justSaved && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Koşu geçmişe kaydedildi'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    });
+
     final state = ref.watch(runSessionControllerProvider);
     final controller = ref.read(runSessionControllerProvider.notifier);
 
@@ -165,6 +191,16 @@ class _RunScreenState extends ConsumerState<RunScreen> {
 
                     if (stoppedWithTrack) ...[
                       const SizedBox(height: 10),
+                      Text(
+                        'Koşu kaydedildi. Yeni koşu için BAŞLAT\'a bas.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.green.shade800,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       OutlinedButton.icon(
                         onPressed: () =>
                             RunShare.share(context, state.currentSession!),
@@ -172,22 +208,23 @@ class _RunScreenState extends ConsumerState<RunScreen> {
                         label: const Text('GPX paylaş (WhatsApp vb.)'),
                       ),
                     ],
-
-                    const SizedBox(height: 12),
-                    RunControlBar(
-                      isRunning: state.isRunning,
-                      isLoading: state.isLoading,
-                      onStart: _locationAccess == LocationAccessStatus.granted
-                          ? () => controller.startRun(workoutPlan: _selectedPlan)
-                          : () => _refreshLocationAccess(requestIfNeeded: true),
-                      onStop: controller.stopRun,
-                    ),
                   ],
                 ),
               ),
             ),
           ),
         ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: RunControlBar(
+          isRunning: state.isRunning,
+          isLoading: state.isLoading,
+          onStart: _locationAccess == LocationAccessStatus.granted
+              ? () => controller.startRun(workoutPlan: _selectedPlan)
+              : () => _refreshLocationAccess(requestIfNeeded: true),
+          onStop: controller.stopRun,
+        ),
       ),
     );
   }

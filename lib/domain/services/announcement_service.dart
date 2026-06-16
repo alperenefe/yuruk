@@ -109,7 +109,7 @@ class AnnouncementService {
     return sb.toString();
   }
 
-  /// Mid-step feedback announcement (at 50% progress)
+  /// Adım ortası tempo geri bildirimi (%50 veya her dakika).
   String getMidStepFeedbackAnnouncement(IntervalStep step, IntervalSession session) {
     // Only for steps with target pace
     if (step.targetPace == null || session.stepActualPaceFormatted == null) {
@@ -143,16 +143,6 @@ class AnnouncementService {
     return 'Tüm intervallar tamamlandı. Harika iş!';
   }
 
-  /// Parse pace string (MM:SS) to double (minutes per km)
-  double? _parsePace(String pace) {
-    final parts = pace.split(':');
-    if (parts.length != 2) return null;
-    
-    final minutes = int.tryParse(parts[0]);
-    final seconds = int.tryParse(parts[1]);
-    
-    if (minutes == null || seconds == null) return null;
-    
-    return minutes + (seconds / 60);
-  }
+  double? _parsePace(String pace) =>
+      IntervalFeedbackConfig.parsePaceMinPerKm(pace);
 }

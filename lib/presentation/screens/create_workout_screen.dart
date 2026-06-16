@@ -6,7 +6,10 @@ import '../../domain/entities/interval_step.dart';
 import '../../domain/repositories/workout_repository.dart';
 
 class CreateWorkoutScreen extends StatefulWidget {
-  const CreateWorkoutScreen({super.key});
+  /// Null → yeni plan oluştur. Dolu → mevcut planı düzenle.
+  final WorkoutPlan? initialPlan;
+
+  const CreateWorkoutScreen({super.key, this.initialPlan});
 
   @override
   State<CreateWorkoutScreen> createState() => _CreateWorkoutScreenState();
@@ -18,6 +21,19 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
   final _descriptionController = TextEditingController();
   final List<IntervalStep> _steps = [];
   bool _isSaving = false;
+
+  bool get _isEditing => widget.initialPlan != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.initialPlan;
+    if (p != null) {
+      _nameController.text = p.name;
+      _descriptionController.text = p.description ?? '';
+      _steps.addAll(p.steps);
+    }
+  }
 
   @override
   void dispose() {
@@ -43,15 +59,28 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
 
     setState(() => _isSaving = true);
 
-    final plan = WorkoutPlan(
-      id: const Uuid().v4(),
-      name: _nameController.text,
-      description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
-      steps: _steps,
-      createdAt: DateTime.now(),
-    );
-
-    await _repository.savePlan(plan);
+    if (_isEditing) {
+      final updated = WorkoutPlan(
+        id: widget.initialPlan!.id,
+        createdAt: widget.initialPlan!.createdAt,
+        name: _nameController.text,
+        description: _descriptionController.text.isEmpty
+            ? null
+            : _descriptionController.text,
+        steps: _steps,
+      );
+      await _repository.updatePlan(updated);
+    } else {
+      final plan = WorkoutPlan(
+        id: const Uuid().v4(),
+        name: _nameController.text,
+        description:
+            _descriptionController.text.isEmpty ? null : _descriptionController.text,
+        steps: _steps,
+        createdAt: DateTime.now(),
+      );
+      await _repository.savePlan(plan);
+    }
 
     if (mounted) {
       Navigator.pop(context, true);
@@ -82,7 +111,7 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Yeni Etkinlik Planı'),
+        title: Text(_isEditing ? 'Planı Düzenle' : 'Yeni Etkinlik Planı'),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [

@@ -29,11 +29,27 @@ class RunControlBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(12)),
         ),
         child: isLoading
-            ? const SizedBox(
-                height: 24,
-                width: 24,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2),
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    isRunning ? 'Kaydediliyor…' : 'Hazırlanıyor…',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               )
             : Text(
                 isRunning ? 'DURDUR' : 'BAŞLAT',

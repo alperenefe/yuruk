@@ -79,7 +79,7 @@ void main() {
       controller.loadRunSession(_sessionWithPoints(points));
       final before = controller.state.results.length;
 
-      controller.addConfig(GpsFilterParams.current.copyWith(name: 'Test'));
+      controller.addConfig(GpsFilterParams.stravaRaw.copyWith(name: 'Test'));
       expect(controller.state.results.length, before + 1);
     });
 
